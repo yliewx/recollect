@@ -1,0 +1,53 @@
+services:
+
+#---------------------------------BACKEND--------------------------------
+  backend:
+    container_name: backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      # - redis
+    networks:
+      - recollect
+    volumes:
+      - postgres_data:/db
+      - ./backend/uploads:/app/uploads
+    # restart: always
+
+#--------------------------------DATABASE--------------------------------
+
+  postgres:
+    image: postgres:18
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    networks:
+      - recollect
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./backend/src/db/init:/docker-entrypoint-initdb.d
+    # restart: always
+
+#--------------------------------VOLUMES---------------------------------
+
+volumes:
+  postgres_data:
+    name: postgres_data
+    driver: local
+
+#--------------------------------NETWORKS--------------------------------
+
+networks:
+  recollect:
+    name: recollect
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
