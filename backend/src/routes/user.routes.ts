@@ -7,4 +7,5 @@ export async function userRoutes(app: FastifyInstance) {
   const userController = new UserController(userModel);
 
   app.post('/users', userController.create.bind(userController));
+  app.delete('/users/me', userController.delete.bind(userController));
 }

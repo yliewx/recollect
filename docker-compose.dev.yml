@@ -33,7 +33,7 @@ services:
       - recollect
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./backend/src/db/init:/docker-entrypoint-initdb.d
+      - ./postgres/init:/docker-entrypoint-initdb.d
     # restart: always
 
 #--------------------------------VOLUMES---------------------------------

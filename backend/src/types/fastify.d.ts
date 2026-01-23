@@ -10,4 +10,8 @@ declare module 'fastify' {
   interface FastifyInstance {
     db: Pool;
   }
+
+  interface FastifyReply {
+    sendError(error: any, status?: number): FastifyReply;
+  }
 }

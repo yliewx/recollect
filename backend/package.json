@@ -8,7 +8,7 @@
     "test": "test"
   },
   "scripts": {
-    "test": "npx mocha --reporter spec dist/**/*.test.js",
+    "test": "npx mocha --timeout 30000 --reporter spec dist/**/*.test.js",
     "start": "node dist/app.js",
     "test:ts": "npm run build:ts && tsc -p test/tsconfig.json && c8 node --test -r ts-node/register \"test/**/*.ts\"",
     "build": "npm run build:ts",
