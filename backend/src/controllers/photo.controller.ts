@@ -8,6 +8,7 @@ import { FastifyReply, FastifyRequest } from "fastify";
     
     }
  */
+
 export class PhotoController {
     constructor(private photoModel: PhotoModel) {}
 
@@ -25,16 +26,14 @@ export class PhotoController {
             // single image upload
             if (file_paths.length === 1) {
                 const newPhoto = await this.photoModel.upload(user_id, file_paths[0]);
-                console.log('uploaded new photo:', newPhoto);
+                console.log('UPLOADED 1 NEW PHOTO:', newPhoto);
                 return reply.status(201).send({ photo: newPhoto }); 
             }
             
             // bulk upload
-            const newPhotos = await this.photoModel.uploadMany(user_id, file_paths)
-            console.log('uploaded new photos:', newPhotos.map(photo => {
-                console.log('photo:', photo);
-            }));
-            return reply.status(201).send({ photo: newPhotos });
+            const newPhotos = await this.photoModel.uploadMany(user_id, file_paths);
+            // newPhotos.forEach(photo => console.log('UPLOADED PHOTO:', photo));
+            return reply.status(201).send({ photos: Array.from(newPhotos) });
         } catch (err) {
             console.error('Error in PhotoController.upload:', err);
             return reply.sendError(err);
@@ -47,9 +46,7 @@ export class PhotoController {
 
         try {
             const photos = await this.photoModel.findFromUser(user_id);
-            console.log(`retrieved user ${user_id}'s photos:`, photos.map(photo => {
-                console.log('photo:', photo);
-            }));
+            // photos.forEach(photo => console.log(`retrieved user ${user_id}'s photos:`, photo));
 
             return reply.status(200).send({ photos });
         } catch (err) {

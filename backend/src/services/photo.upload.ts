@@ -19,8 +19,8 @@ export async function uploadPhotos(request: FastifyRequest) {
     for await (const part of parts) {
         if (part.type === 'file') {
             // validate filetype
-            console.log('filename:', part.filename);
-            console.log('mimetype:', part.mimetype);
+            // console.log('filename:', part.filename);
+            // console.log('mimetype:', part.mimetype);
             console.log();
             if (!validFileTypes.includes(part.mimetype)) {
                 throw new Error(`Unsupported file type: ${part.mimetype}`);
@@ -30,7 +30,7 @@ export async function uploadPhotos(request: FastifyRequest) {
             const ext = path.extname(part.filename);
             const fileName = crypto.randomUUID() + ext;
             const uploadPath = path.join(uploadsDir, fileName);
-            console.log('uploadPath:', uploadPath);
+            // console.log('uploadPath:', uploadPath);
 
             // write image to uploads directory
             await pipeline(part.file, fs.createWriteStream(uploadPath));

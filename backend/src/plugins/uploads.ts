@@ -12,7 +12,7 @@ export default fp(async function setUploadsDir(app: FastifyInstance) {
             fieldSize: 100,
             fields: 10,
             fileSize: 10000000, // max 10mb
-            files: 1,
+            files: 10, // max 10 files per request
             headerPairs: 2000,
             parts: 1000
         }

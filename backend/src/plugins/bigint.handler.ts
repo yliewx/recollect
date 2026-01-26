@@ -14,10 +14,6 @@ export default fp(async function setBigIntHandler(app: FastifyInstance) {
 
     app.addHook('preValidation', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            // console.log();
-            // console.log('request.body:', JSON.stringify(request.body));
-            // console.log('request.params:', JSON.stringify(request.params));
-            // console.log();
             request.body = parseBigIntFields(request.body);
             request.params = parseBigIntFields(request.params);
         } catch (err) {
@@ -25,6 +21,22 @@ export default fp(async function setBigIntHandler(app: FastifyInstance) {
         }
     });
 });
+
+/**============================================
+ *           HELPERS FOR PARSING
+ *=============================================**/
+
+// check if a string contains only digits
+function isNumeric(str: string): boolean {
+    return /^\d+$/.test(str);
+}
+
+export function parseBigInt(value: string, field: string): bigint {
+    if (!isNumeric(value)) {
+        throw new Error(`Invalid BigInt for field "${field}": ${value}`);
+    }
+    return BigInt(value);
+}
 
 /**------------------------------------------------------------------------
  **                  HANDLE BIGINT FIELDS IN REQUEST
@@ -53,39 +65,19 @@ function serializeBigInt(value: any): any {
         return value.toString();
     }
 
-    // if (Array.isArray(value)) {
-    //     return value.map(serializeBigInt);
-    // }
+    if (Array.isArray(value)) {
+        return value.map(serializeBigInt);
+    }
 
     if (value && typeof value === 'object') {
         const result: Record<string, any> = {};
 
         for (const [key, val] of Object.entries(value)) {
-            // check type of field before conversion
-            if (typeof val === 'bigint') {
-                result[key] = val.toString();
-            } else if (val && typeof val === 'object') {
-                result[key] = serializeBigInt(val);
-            } else {
-                result[key] = val;
-            }
+            // recursively check type of field before conversion
+            result[key] = serializeBigInt(val);
         }
         return result;
     }
-}
-
-/**============================================
- *           HELPERS FOR PARSING
- *=============================================**/
-
-// check if a string contains only digits
-function isNumeric(str: string): boolean {
-    return /^\d+$/.test(str);
-}
-
-export function parseBigInt(value: string, field: string): bigint {
-    if (!isNumeric(value)) {
-        throw new Error(`Invalid BigInt for field "${field}": ${value}`);
-    }
-    return BigInt(value);
+    // preserve any non-bigint value
+    return value;
 }
