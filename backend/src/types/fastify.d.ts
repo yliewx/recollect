@@ -4,14 +4,20 @@
  *   - extends fastify to include custom definitions
  *========================================================================**/
 
-import { Pool } from 'pg';
+import { PrismaClient } from '@/generated/prisma/client.js';
 
 declare module 'fastify' {
-  interface FastifyInstance {
-    db: Pool;
-  }
+    interface FastifyInstance {
+        prisma: PrismaClient;
+    }
 
-  interface FastifyReply {
-    sendError(error: any, status?: number): FastifyReply;
-  }
+    interface FastifyReply {
+        sendError(error: any, status?: number): FastifyReply;
+    }
+
+    interface FastifyRequest {
+        user: {
+            id: bigint;
+        };
+    }
 }

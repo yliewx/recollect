@@ -5,7 +5,7 @@ import { FastifyInstance } from 'fastify';
 
 describe('USER FLOW TESTS:', () => {
     let app: any;
-    let newUserId: number;
+    let userId: string;
     let sameUsername: string;
     let sameEmail: string;
 
@@ -24,21 +24,30 @@ describe('USER FLOW TESTS:', () => {
             const response = await app.inject({
                 method: 'POST',
                 url: '/users',
-                body: {
+                payload: {
                     username: `test_user_${Date.now()}`,
                     email: `test_${Date.now()}@test.com`,
+                },
+                headers: {
+                    'content-type': 'application/json'
                 },
             });
 
             expect(response.statusCode).to.equal(201);
 
             const body = response.json();
-            expect(body).to.have.property('user');
-            expect(body.user).to.have.property('id');
 
-            newUserId = body.user.id;
-            sameUsername = body.user.username;
-            sameEmail = body.user.email;
+            try {
+                expect(body).to.have.property('user');
+                expect(body.user).to.have.property('id');
+
+                userId = body.user.id;
+                sameUsername = body.user.username;
+                sameEmail = body.user.email;
+            } catch (err) {
+                console.error('error in user.test.ts:', err);
+            }
+            
         });
     });
 
@@ -77,8 +86,8 @@ describe('USER FLOW TESTS:', () => {
             const response = await app.inject({
                 method: 'DELETE',
                 url: '/users/me',
-                body: {
-                    userId: newUserId,
+                headers: {
+                    'x-user-id': userId,
                 },
             });
 

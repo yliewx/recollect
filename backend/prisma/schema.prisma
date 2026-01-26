@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model album_photos {
+  album_id BigInt
+  photo_id BigInt
+  albums   albums @relation(fields: [album_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  photos   photos @relation(fields: [photo_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([album_id, photo_id])
+  @@index([album_id], map: "idx_album_photos_album_id")
+  @@index([photo_id], map: "idx_album_photos_photo_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model albums {
+  id           BigInt         @id @default(autoincrement())
+  user_id      BigInt
+  title        String
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  deleted_at   DateTime?      @db.Timestamptz(6)
+  album_photos album_photos[]
+  users        users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_albums_user_id")
+}
+
+/// caption_tsv: postgres full-text search column, accessed via raw SQL
+model captions {
+  photo_id    BigInt                   @id
+  caption     String
+  caption_tsv Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, caption)"))
+  photos      photos                   @relation(fields: [photo_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([caption_tsv], map: "idx_photos_captions_tsv", type: Gin)
+}
+
+model photo_tags {
+  photo_id BigInt
+  tag_id   BigInt
+  photos   photos @relation(fields: [photo_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tags     tags   @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([photo_id, tag_id])
+  @@index([photo_id], map: "idx_photo_tags_photo_id")
+  @@index([tag_id], map: "idx_photo_tags_tag_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model photos {
+  id           BigInt         @id @default(autoincrement())
+  user_id      BigInt
+  file_path    String
+  uploaded_at  DateTime?      @default(now()) @db.Timestamptz(6)
+  deleted_at   DateTime?      @db.Timestamptz(6)
+  album_photos album_photos[]
+  captions     captions?
+  photo_tags   photo_tags[]
+  users        users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_photos_user_id")
+}
+
+model tags {
+  id         BigInt       @id @default(autoincrement())
+  name       String       @unique
+  photo_tags photo_tags[]
+}
+
+model users {
+  id         BigInt    @id @default(autoincrement())
+  username   String    @unique @db.VarChar(50)
+  email      String    @unique @db.VarChar(50)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  albums     albums[]
+  photos     photos[]
+}

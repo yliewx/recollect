@@ -18,26 +18,22 @@ export class UserController {
 
             return reply.status(201).send({ user: newUser });
         } catch (err) {
-            // console.error('Error in UserController.create:', err);
+            console.error('Error in UserController.create:', err);
             return reply.sendError(err);
         }
     }
 
     // DELETE /me
-    // TODO: user auth check? temporarily use request.body
     async delete(request: FastifyRequest, reply: FastifyReply) {
-        const { userId } = request.body as any;
-        if (!userId) {
-            return reply.sendError('User ID not found in request');
-        }
+        const user_id = request.user.id;
 
         try {
-            const response = await this.userModel.delete(userId);
+            const response = await this.userModel.delete(user_id);
             console.log('deleted user:', response);
 
             return reply.status(200).send({ success: true });
         } catch (err) {
-            // console.error('Error in UserController.delete:', err);
+            console.error('Error in UserController.delete:', err);
             return reply.sendError(err);
         }
     }

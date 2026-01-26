@@ -1,5 +1,76 @@
 import { Photo } from "@/types/models.js";
-import { Pool } from "pg";
+import { PrismaClient } from '@/generated/prisma/client.js';
+
+export class PhotoModel {
+    constructor(private prisma: PrismaClient) {}
+
+    async upload(user_id: bigint, file_path: string): Promise<Photo> {
+        return await this.prisma.photos.create({
+            data: { user_id, file_path }
+        });
+    }
+
+    // get all active photos from specific user
+    async findFromUser(user_id: bigint): Promise<Photo[]> {
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                deleted_at: null
+            },
+            orderBy: { uploaded_at: 'desc' },
+        });
+    }
+
+    // get user's photos by tag id
+    async taggedWith(tag_id: bigint, user_id: bigint): Promise<Photo[]> {
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                deleted_at: null,
+                photo_tags: {
+                    some: {
+                        tags: { id: tag_id }
+                    }
+                },
+            },
+            orderBy: { uploaded_at: 'desc' },
+        });
+    }
+
+    // get user's deleted photos
+    async findDeleted(user_id: bigint): Promise<Photo[]> {
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                NOT: { deleted_at: null }
+            },
+            orderBy: { uploaded_at: 'desc' },
+        });
+    }
+
+    // soft delete
+    async delete(photo_id: bigint, user_id: bigint): Promise<Photo> {
+        return this.prisma.photos.update({
+            where: {
+                id: photo_id,
+                user_id
+            },
+            data: { deleted_at: new Date() },
+        });
+    }
+
+    // restore deleted photo
+    async restore(photo_id: bigint, user_id: bigint): Promise<Photo> {
+        return this.prisma.photos.update({
+            where: {
+                id: photo_id,
+                user_id,
+                NOT: { deleted_at: null }
+            },
+            data: { deleted_at: null },
+        });
+    }
+}
 
 /*
     const query = `
@@ -14,46 +85,3 @@ import { Pool } from "pg";
 
     return result.rows[0];
 */
-
-export class PhotoModel {
-    constructor(private db: Pool) {}
-
-    // POST /photos
-    async upload(userId: number, filePath: string, caption?: string): Promise<Photo> {
-        const query = `
-            INSERT INTO photos (user_id, file_path, caption)
-            VALUES ($1, $2, $3)
-            RETURNING id, user_id, file_path, caption, uploaded_at
-        `;
-        const values = [userId, filePath, caption ?? null];
-        const result = await this.db.query(query, values);
-
-        if (!result.rows || result.rows.length === 0) {
-            throw new Error('Photo INSERT failed');
-        }
-
-        return result.rows[0];
-    }
-
-    // DELETE /photos:id
-    // soft delete
-    async delete(photoId: number, userId: number) {
-        const query = `
-            UPDATE photos
-            SET deleted_at = CURRENT_TIMESTAMP
-            WHERE id = $1
-                AND user_id = $2
-                AND deleted_at IS NULL
-            RETURNING id, user_id, file_path, caption, uploaded_at, deleted_at
-        `;
-
-        const values = [photoId, userId];
-        const result = await this.db.query(query, values);
-
-        if (!result.rows || result.rows.length === 0) {
-            throw new Error('Photo delete (UPDATE) failed');
-        }
-
-        return result.rows[0];
-    }
-}

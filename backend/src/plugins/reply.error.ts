@@ -2,7 +2,7 @@ import fp from 'fastify-plugin';
 import { FastifyInstance, FastifyReply } from 'fastify';
 
 // helper for sending default error responses for requests
-export default fp(async function setErrorHandler(app: FastifyInstance) {
+export default fp(async function setErrorReply(app: FastifyInstance) {
     app.decorateReply('sendError', function sendError(
         this: FastifyReply,
         error: any,

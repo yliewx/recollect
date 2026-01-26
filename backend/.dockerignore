@@ -6,3 +6,5 @@ dist
 Dockerfile
 docker-compose.yml
 uploads
+generated/prisma
+src/generated/prisma

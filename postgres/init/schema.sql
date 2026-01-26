@@ -1,17 +1,6 @@
 BEGIN;
 
 -- =========================================================
--- * reset db
--- =========================================================
-
-DROP TABLE IF EXISTS album_photos;
-DROP TABLE IF EXISTS photo_tags;
-DROP TABLE IF EXISTS photos;
-DROP TABLE IF EXISTS albums;
-DROP TABLE IF EXISTS tags;
-DROP TABLE IF EXISTS users;
-
--- =========================================================
 -- * core entities
 -- =========================================================
 
@@ -35,7 +24,7 @@ CREATE TABLE IF NOT EXISTS albums (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
 
-    CONSTRAINT albums_deleted_at_valid
+    CONSTRAINT albums_deleted_at
         CHECK (deleted_at IS NULL OR deleted_at >= created_at)
 );
 
@@ -46,11 +35,10 @@ CREATE TABLE IF NOT EXISTS photos (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
-    caption TEXT,
     uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
 
-    CONSTRAINT photos_deleted_at_valid
+    CONSTRAINT photos_deleted_at
         CHECK (deleted_at IS NULL OR deleted_at >= uploaded_at)
 );
 
@@ -60,6 +48,18 @@ CREATE TABLE IF NOT EXISTS photos (
 CREATE TABLE IF NOT EXISTS tags (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name TEXT UNIQUE NOT NULL
+);
+
+-- -------------------------------------
+-- PHOTO CAPTIONS
+-- -------------------------------------
+CREATE TABLE IF NOT EXISTS captions (
+    photo_id BIGINT PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+    caption TEXT NOT NULL,
+    caption_tsv TSVECTOR -- tokenized version of caption
+        GENERATED ALWAYS AS (
+            to_tsvector('english', caption)
+        ) STORED
 );
 
 -- =========================================================
@@ -88,10 +88,15 @@ CREATE TABLE IF NOT EXISTS photo_tags (
 -- * indexes
 -- =========================================================
 
--- filter photos
-CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+-- GIN (generalized inverted index): for full-text search
+CREATE INDEX IF NOT EXISTS idx_photos_captions_tsv ON captions USING GIN (caption_tsv);
+
+-- filter albums and photos to account for soft deletion
 CREATE INDEX IF NOT EXISTS idx_photos_active ON photos(id) WHERE deleted_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_albums_active ON albums(id) WHERE deleted_at IS NULL;
+
+-- prevent duplicate album titles per user
+CREATE UNIQUE INDEX IF NOT EXISTS idx_albums_user_title ON albums(user_id, title) WHERE deleted_at IS NULL;
 
 -- foreign keys
 CREATE INDEX IF NOT EXISTS idx_albums_user_id ON albums(user_id);

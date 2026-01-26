@@ -1,6 +1,8 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import connectDb from './plugins/pool.js';
-import setErrorHandler from './plugins/reply.error.js';
+import connectPrisma from './plugins/prisma.js';
+import setUploadsDir from './plugins/uploads.js';
+import setErrorReply from './plugins/reply.error.js';
+import setBigIntHandler from './plugins/bigint.handler.js';
 import { userRoutes } from './routes/user.routes.js';
 import { photoRoutes } from './routes/photo.routes.js';
 
@@ -15,11 +17,17 @@ import { photoRoutes } from './routes/photo.routes.js';
 export function buildApp(options = {}): FastifyInstance {
     const app = Fastify(options);
 
-    // register postgres connection pool
-    app.register(connectDb);
+    // register prisma and connect to postgres db
+    app.register(connectPrisma);
+
+    // handle file uploads
+    app.register(setUploadsDir);
 
     // register error handler for requests
-    app.register(setErrorHandler);
+    app.register(setErrorReply);
+
+    // handle conversion of bigint (IDs) to string in responses
+    app.register(setBigIntHandler);
 
     // define application routes (placeholder)
     app.register(userRoutes);

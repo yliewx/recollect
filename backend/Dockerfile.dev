@@ -14,7 +14,10 @@ COPY tsconfig.json ./
 COPY src ./src
 COPY test ./src/test
 
+# generate prisma client
+COPY prisma ./prisma
+RUN npx prisma generate
+
 RUN npm run build
 
-# CMD ["tail", "-f"]
 CMD ["npm", "run", "test"]

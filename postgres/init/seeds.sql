@@ -25,11 +25,10 @@ JOIN generate_series(
 -- -------------------------------------
 -- PHOTOS
 -- -------------------------------------
-INSERT INTO photos (user_id, file_path, caption)
+INSERT INTO photos (user_id, file_path)
 SELECT
     u.id AS user_id,
-    '/uploads/' || u.id || '/photo_' || i || '.jpg' AS file_path,
-    'Caption for photo ' || i AS caption
+    '/uploads/' || u.id || '/photo_' || i || '.jpg' AS file_path
 FROM generate_series(1, 100) AS i
 JOIN users u
     ON u.id = (1 + (random() * (SELECT MAX(id) FROM users))::BIGINT)
