@@ -2,10 +2,8 @@ import fp from 'fastify-plugin';
 import { FastifyInstance } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
-import path from 'path';
 import fs from 'fs';
-
-const uploadsDir = path.join(process.cwd(), 'uploads');
+import { uploadsDir } from '@/types/constants.js';
 
 export default fp(async function setUploadsDir(app: FastifyInstance) {
     app.register(fastifyMultipart, {

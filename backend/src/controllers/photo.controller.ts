@@ -1,4 +1,5 @@
 import { PhotoModel } from '@/models/photo.model.js';
+import { uploadPhotos } from '@/services/photo.upload.js';
 import { Photo } from "@/types/models.js";
 import { FastifyReply, FastifyRequest } from "fastify";
 
@@ -13,16 +14,27 @@ export class PhotoController {
     // POST /photos
     async upload(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
-        const { file_path, caption } = request.body as any;
-        if (!file_path) {
-            return reply.sendError('Photo details not found in request');
-        }
 
         try {
-            const newPhoto = await this.photoModel.upload(user_id, file_path);
-            console.log('uploaded new photo:', newPhoto);
+            // validate & upload images, return file path
+            const file_paths = await uploadPhotos(request);
+            if (file_paths.length === 0) {
+                return reply.sendError('No images uploaded');
+            }
 
-            return reply.status(201).send({ photo: newPhoto });
+            // single image upload
+            if (file_paths.length === 1) {
+                const newPhoto = await this.photoModel.upload(user_id, file_paths[0]);
+                console.log('uploaded new photo:', newPhoto);
+                return reply.status(201).send({ photo: newPhoto }); 
+            }
+            
+            // bulk upload
+            const newPhotos = await this.photoModel.uploadMany(user_id, file_paths)
+            console.log('uploaded new photos:', newPhotos.map(photo => {
+                console.log('photo:', photo);
+            }));
+            return reply.status(201).send({ photo: newPhotos });
         } catch (err) {
             console.error('Error in PhotoController.upload:', err);
             return reply.sendError(err);
@@ -35,7 +47,9 @@ export class PhotoController {
 
         try {
             const photos = await this.photoModel.findFromUser(user_id);
-            console.log(`retrieved user ${user_id}'s photos: ${photos}`);
+            console.log(`retrieved user ${user_id}'s photos:`, photos.map(photo => {
+                console.log('photo:', photo);
+            }));
 
             return reply.status(200).send({ photos });
         } catch (err) {

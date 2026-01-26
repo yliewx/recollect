@@ -4,9 +4,29 @@ import { PrismaClient } from '@/generated/prisma/client.js';
 export class PhotoModel {
     constructor(private prisma: PrismaClient) {}
 
+    // single insert
     async upload(user_id: bigint, file_path: string): Promise<Photo> {
         return await this.prisma.photos.create({
             data: { user_id, file_path }
+        });
+    }
+
+    // bulk inserts
+    async uploadMany(user_id: bigint, file_paths: string[]): Promise<Photo[]> {
+        await this.prisma.photos.createMany({
+            data: file_paths.map(file_path => ({
+                user_id,
+                file_path,
+            })),
+        });
+
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                file_path: { in: file_paths },
+                deleted_at: null
+            },
+            orderBy: { uploaded_at: 'desc' },
         });
     }
 

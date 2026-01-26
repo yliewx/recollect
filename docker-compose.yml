@@ -18,6 +18,7 @@ services:
     volumes:
       - postgres_data:/db
       - ./backend/uploads:/app/uploads
+      - ./test_images:/app/test_images
     # restart: always
 
 #--------------------------------DATABASE--------------------------------

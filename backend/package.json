@@ -32,6 +32,7 @@
     "fastify": "^5.0.0",
     "fastify-cli": "^7.4.1",
     "fastify-plugin": "^5.0.0",
+    "form-data": "^4.0.5",
     "pg": "^8.17.2"
   },
   "devDependencies": {

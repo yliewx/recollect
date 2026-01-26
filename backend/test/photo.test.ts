@@ -2,6 +2,10 @@ import { describe, it, before, after } from 'mocha';
 import { expect } from 'chai';
 import { buildApp } from '../app.js';
 import { FastifyInstance } from 'fastify';
+import { uploadsDir, rootDir } from '@/types/constants.js';
+import path from 'path';
+import fs from 'fs';
+import FormData from 'form-data';
 
 async function createTestUser(app: FastifyInstance): Promise<string> {
     const response = await app.inject({
@@ -15,14 +19,12 @@ async function createTestUser(app: FastifyInstance): Promise<string> {
 
     expect(response.statusCode).to.equal(201);
     const body = response.json();
-    console.log('create test user body:', body);
     return body.user.id;
 }
 
 describe('PHOTO FLOW TESTS:', () => {
     let app: any;
     let userId: string;
-    // let newPhotoId: string;
     let photoIds: string[] = [];
 
     before(async function () {
@@ -40,15 +42,24 @@ describe('PHOTO FLOW TESTS:', () => {
     describe('[POST /photos] -> upload photo', () => {
         it('should upload 5 photos', async () => {
             for (let i = 0; i < 5; i++) {
+                const form = new FormData();
+
+                const filePath = path.join(
+                    rootDir,
+                    'test_images',
+                    `photo_${i}.jpg`
+                );
+                // read image file, append to form data
+                form.append('file', fs.createReadStream(filePath));
+
                 const response = await app.inject({
                     method: 'POST',
                     url: '/photos',
                     headers: {
                         'x-user-id': userId,
+                        ...form.getHeaders(),
                     },
-                    body: {
-                        file_path: `test_${Date.now()}.png`
-                    },
+                    payload: form,
                 });
 
                 expect(response.statusCode).to.equal(201);
@@ -56,8 +67,16 @@ describe('PHOTO FLOW TESTS:', () => {
                 const body = response.json();
                 expect(body).to.have.property('photo');
                 expect(body.photo).to.have.property('id');
-                
+                expect(body.photo).to.have.property('file_path');
+
                 photoIds.push(body.photo.id);
+
+                // check that image was saved to /uploads
+                expect(
+                    fs.existsSync(
+                        path.join(uploadsDir, body.photo.file_path)
+                    )
+                ).to.equal(true);
             }
         });
     });
