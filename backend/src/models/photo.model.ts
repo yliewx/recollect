@@ -31,13 +31,24 @@ export class PhotoModel {
     }
 
     // get all active photos from specific user
-    async findFromUser(user_id: bigint): Promise<Photo[]> {
+    async findAllFromUser(user_id: bigint): Promise<Photo[]> {
         return await this.prisma.photos.findMany({
             where: {
                 user_id,
                 deleted_at: null
             },
             orderBy: { uploaded_at: 'desc' },
+        });
+    }
+
+    // return photos with matching photo_ids that are owned by the user
+    async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                id: { in: photo_ids },
+                deleted_at: null
+            },
         });
     }
 
@@ -64,7 +75,7 @@ export class PhotoModel {
                 user_id,
                 NOT: { deleted_at: null }
             },
-            orderBy: { uploaded_at: 'desc' },
+            orderBy: { deleted_at: 'desc' },
         });
     }
 

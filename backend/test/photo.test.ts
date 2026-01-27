@@ -126,6 +126,11 @@ describe('PHOTO FLOW TESTS:', () => {
             });
 
             expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
+            expect(body.photos.length).to.equal(6);
         });
     });
 

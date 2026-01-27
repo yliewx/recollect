@@ -8,14 +8,25 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
  *========================================================================**/
 
 export default fp(async function setBigIntHandler(app: FastifyInstance) {
+    // before sending response: automatically convert bigint to string
     app.addHook('preSerialization', async (request: FastifyRequest, reply: FastifyReply, payload: any) => {
+        // console.log();
+        // console.log('PRESERIALIZATION HOOK:');
+        // console.log('payload:', payload);
+        // console.log();
         return serializeBigInt(payload);
     });
 
+    // before processing request: automatically convert ID fields in request.body and params
     app.addHook('preValidation', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
+            // console.log();
+            // console.log('PREVALIDATION HOOK:');
+            // console.log('request.body:', request.body);
             request.body = parseBigIntFields(request.body);
+            // console.log('request.params:', request.params);
             request.params = parseBigIntFields(request.params);
+            // console.log();
         } catch (err) {
             reply.sendError(err);
         }
@@ -41,17 +52,30 @@ export function parseBigInt(value: string, field: string): bigint {
 /**------------------------------------------------------------------------
  **                  HANDLE BIGINT FIELDS IN REQUEST
  *------------------------------------------------------------------------**/
-// check request.body for ID fields that should be bigint
+// check for ID fields that should be bigint
 // convert string -> bigint and return the new body
-function parseBigIntFields(body: any): any {
-    if (!body) return body;
+function parseBigIntFields(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
 
-    const copy = { ...body };
+    const copy = { ...obj };
     const idFields = ['id', 'user_id', 'photo_id', 'album_id', 'tag_id'];
 
-    for (const i of idFields) {
-        if (copy[i] !== undefined && typeof copy[i] === 'string') {
-            copy[i] = parseBigInt(copy[i], i);
+    // iterate over the object's keys
+    for (const key of Object.keys(copy)) {
+        const value = copy[key];
+
+        // single id field: convert string->bigint
+        if (idFields.includes(key) && typeof value === 'string') {
+            copy[key] = parseBigInt(value, key);
+        }
+
+        // arrays of ids: convert every element in the array
+        if (idFields.includes(key) && Array.isArray(value)) {
+            copy[key] = value.map((v, idx) => {
+                if (typeof v === 'string') {
+                    return parseBigInt(v, `${key}[${idx}]`);
+                }
+            });
         }
     }
     return copy;
@@ -60,7 +84,7 @@ function parseBigIntFields(body: any): any {
 /**------------------------------------------------------------------------
  **                   HANDLE BIGINT FIELDS IN REPLY
  *------------------------------------------------------------------------**/
-function serializeBigInt(value: any): any {
+export function serializeBigInt(value: any): any {
     if (typeof value === 'bigint') {
         return value.toString();
     }

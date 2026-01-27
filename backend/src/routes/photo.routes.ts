@@ -31,7 +31,7 @@ export async function photoRoutes(app: FastifyInstance) {
         app.register(userContext);
 
         // get all photos belonging to user
-        app.get('/photos', photoController.findFromUser.bind(photoController));
+        app.get('/photos', photoController.findAllFromUser.bind(photoController));
 
         // upload photos
         app.post('/photos', photoController.upload.bind(photoController));

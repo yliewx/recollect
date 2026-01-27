@@ -5,6 +5,7 @@ import setErrorReply from './plugins/reply.error.js';
 import setBigIntHandler from './plugins/bigint.handler.js';
 import { userRoutes } from './routes/user.routes.js';
 import { photoRoutes } from './routes/photo.routes.js';
+import { albumRoutes } from './routes/album.routes.js';
 
 /**========================================================================
  **                           BUILD APP
@@ -29,9 +30,11 @@ export function buildApp(options = {}): FastifyInstance {
     // handle conversion of bigint (IDs) to string in responses
     app.register(setBigIntHandler);
 
-    // define application routes (placeholder)
+    // define application routes
     app.register(userRoutes);
     app.register(photoRoutes);
+    app.register(albumRoutes);
+
     app.get('/', function (request: FastifyRequest, reply: FastifyReply) {
         reply.send({ hello: 'world' })
     });

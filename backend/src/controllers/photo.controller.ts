@@ -41,16 +41,16 @@ export class PhotoController {
     }
 
     // GET /photos
-    async findFromUser(request: FastifyRequest, reply: FastifyReply) {
+    async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
 
         try {
-            const photos = await this.photoModel.findFromUser(user_id);
+            const photos = await this.photoModel.findAllFromUser(user_id);
             // photos.forEach(photo => console.log(`retrieved user ${user_id}'s photos:`, photo));
 
             return reply.status(200).send({ photos });
         } catch (err) {
-            console.error('Error in PhotoController.findFromUser:', err);
+            console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);
         }
     }
