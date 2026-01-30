@@ -42,10 +42,31 @@ describe('PHOTO FLOW TESTS:', () => {
     describe('[POST /photos] -> upload multiple photos', () => {
         it('should upload 5 photos in 1 request', async () => {
             const form = new FormData();
+            const filePaths: string[] = [];
+            const metadata = {
+                items: [] as {
+                    filename: string;
+                    caption?: string;
+                    tags?: string[];
+                }[]
+            };
 
             // read and append files to form data
             for (let i = 0; i < 5; i++) {
-                const filePath = path.join(rootDir, 'test_images', `photo_${i}.jpg`);
+                const filename = `photo_${i}.jpg`;
+                const filePath = path.join(rootDir, 'test_images', filename);
+
+                // form.append('file', fs.createReadStream(filePath));
+                filePaths.push(filePath);
+                metadata.items.push({
+                    filename,
+                    caption: i % 2 ? `Caption ${i}` : `Parsley ${i}`,
+                    tags: [`tag_${i}`, 'common']
+                });
+            }
+
+            form.append('metadata', JSON.stringify(metadata));
+            for (const filePath of filePaths) {
                 form.append('file', fs.createReadStream(filePath));
             }
 
@@ -100,18 +121,23 @@ describe('PHOTO FLOW TESTS:', () => {
             expect(response.statusCode).to.equal(201);
 
             const body = response.json();
-            expect(body).to.have.property('photo');
-            expect(body.photo).to.have.property('id');
-            expect(body.photo).to.have.property('file_path');
+            // single photo upload is still treated as batch upload -> 'photos' array with 1 object
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
+            expect(body.photos.length).to.equal(1);
 
-            // check that image was saved to /uploads
-            expect(
-                fs.existsSync(
-                    path.join(uploadsDir, body.photo.file_path)
-                )
-            ).to.equal(true);
+            // check that each image was saved to /uploads
+            for (const photo of body.photos) {
+                expect(photo).to.have.property('id');
+                expect(photo).to.have.property('file_path');
+                expect(
+                    fs.existsSync(
+                        path.join(uploadsDir, photo.file_path)
+                    )
+                ).to.equal(true);
 
-            photoIds.push(body.photo.id);
+                photoIds.push(photo.id);
+            }
         });
     });
 

@@ -47,11 +47,15 @@ CREATE TABLE IF NOT EXISTS photos (
 -- -------------------------------------
 CREATE TABLE IF NOT EXISTS tags (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tag_name TEXT NOT NULL,
+
+    -- enforce unique tags for each user
+    CONSTRAINT users_tags_name_unique UNIQUE (user_id, tag_name)
 );
 
 -- -------------------------------------
--- PHOTO CAPTIONS
+-- CAPTIONS
 -- -------------------------------------
 CREATE TABLE IF NOT EXISTS captions (
     photo_id BIGINT PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,

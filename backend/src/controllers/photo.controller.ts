@@ -1,7 +1,10 @@
 import { PhotoModel } from '@/models/photo.model.js';
 import { uploadPhotos } from '@/services/photo.upload.js';
+import { TagService } from '@/services/tag.service.js';
 import { Photo } from "@/types/models.js";
 import { FastifyReply, FastifyRequest } from "fastify";
+import { PhotoData, InsertedPhotoData } from '@/services/photo.upload.js';
+import { CaptionService } from '@/services/caption.service.js';
 
 /*
     async create(request: FastifyRequest, reply: FastifyReply) {
@@ -10,29 +13,60 @@ import { FastifyReply, FastifyRequest } from "fastify";
  */
 
 export class PhotoController {
-    constructor(private photoModel: PhotoModel) {}
+    constructor(
+        private photoModel: PhotoModel,
+        private tagService: TagService,
+        private captionService: CaptionService
+    ) {}
 
     // POST /photos
     async upload(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
 
         try {
-            // validate & upload images, return file path
-            const file_paths = await uploadPhotos(request);
-            if (file_paths.length === 0) {
-                return reply.sendError('No images uploaded');
-            }
-
-            // single image upload
-            if (file_paths.length === 1) {
-                const newPhoto = await this.photoModel.upload(user_id, file_paths[0]);
-                console.log('UPLOADED 1 NEW PHOTO:', newPhoto);
-                return reply.status(201).send({ photo: newPhoto }); 
+            /* uploadPhotos validates & uploads images; returns an array of PhotoData objects with these fields:
+                file_path: string;
+                caption?: string;
+                tags?: string[];
+             */
+            const photoData: PhotoData[] = await uploadPhotos(request);
+            if (photoData.length === 0) {
+                throw new Error('No images uploaded');
             }
             
-            // bulk upload
+            // bulk insert into photos table
+            const file_paths = photoData.map(photo => photo.file_path);
             const newPhotos = await this.photoModel.uploadMany(user_id, file_paths);
-            // newPhotos.forEach(photo => console.log('UPLOADED PHOTO:', photo));
+            if (newPhotos.length !== photoData.length) {
+                throw new Error('Failed to upload all images');
+            }
+
+            const filePathToPhotoId = new Map(newPhotos.map(p => [p.file_path, p.id]));
+
+            const insertedPhotoData = photoData.map(photo => {
+                const photo_id = filePathToPhotoId.get(photo.file_path);
+                if (!photo_id) {
+                    throw new Error('Photo ID missing');
+                }
+                return { ... photo, photo_id}
+            })
+            console.log('insertedPhotoData:', insertedPhotoData);
+
+            insertedPhotoData.forEach(async (photo, i) => {
+                console.log(`UPLOADED PHOTO ${i}:`, photo);
+            });
+
+            // HANDLE TAG INSERTION
+            // extract all unique tag names to insert into tags table (if it doesn't exist)
+            // insert (photo_id, tag_id) into photo_tags table
+            const insertedTags = await this.tagService.applyPhotoTags(insertedPhotoData, user_id);
+            // console.log('inserted tags:', insertedTags);
+
+            // HANDLE CAPTION INSERTION
+            // insert (photo_id, caption) into captions table
+            const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData);
+            console.log('inserted captions:', insertedCaptions);
+
             return reply.status(201).send({ photos: Array.from(newPhotos) });
         } catch (err) {
             console.error('Error in PhotoController.upload:', err);
@@ -46,7 +80,7 @@ export class PhotoController {
 
         try {
             const photos = await this.photoModel.findAllFromUser(user_id);
-            // photos.forEach(photo => console.log(`retrieved user ${user_id}'s photos:`, photo));
+            photos.forEach((photo, i) => console.log(`retrieved user ${user_id}'s photo[${i}]:`, photo));
 
             return reply.status(200).send({ photos });
         } catch (err) {

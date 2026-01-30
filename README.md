@@ -16,6 +16,10 @@ make
 ```bash
 make test
 ```
+- view test output:
+```bash
+docker logs backend
+```
 
 ## Project Structure
 ```bash
@@ -25,6 +29,8 @@ make test
 │   ├── Dockerfile.dev # for testing
 │   ├── package-lock.json
 │   ├── package.json
+│   ├── prisma/
+│   │   └── schema.prisma
 │   ├── src/ # contains backend source code
 │   ├── test/ # unit tests
 │   └── tsconfig.json

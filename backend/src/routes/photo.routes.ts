@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { PhotoModel } from '@/models/photo.model.js';
 import { PhotoController } from '@/controllers/photo.controller.js';
 import userContext from '@/plugins/user.context.js';
+import { TagService } from '@/services/tag.service.js';
+import { CaptionService } from '@/services/caption.service.js';
 
 /* define query parameters and types
 eg.
@@ -24,7 +26,9 @@ const schema = {
 
 export async function photoRoutes(app: FastifyInstance) {
     const photoModel = new PhotoModel(app.prisma);
-    const photoController = new PhotoController(photoModel);
+    const tagService = new TagService(app.prisma);
+    const captionService = new CaptionService(app.prisma);
+    const photoController = new PhotoController(photoModel, tagService, captionService);
 
     // protected
     app.register(async function protectedPhotoRoutes(app) {
