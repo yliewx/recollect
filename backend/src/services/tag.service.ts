@@ -5,7 +5,7 @@ import { PhotoTag } from '@/types/models.js';
 export class TagService {
     constructor(private prisma: PrismaClient) {}
 
-    async applyPhotoTags(photoData: InsertedPhotoData[], user_id: bigint) {
+    async addPhotoTags(photoData: InsertedPhotoData[], user_id: bigint) {
         try {
             // extract all unique tag names to insert into tags table (if it doesn't exist)
             const uniqueTags = this.extractUniqueTags(photoData);
@@ -74,13 +74,6 @@ export class TagService {
             })),
             skipDuplicates: true,
         });
-
-        // return await this.prisma.tags.findMany({
-        //     where: {
-        //         user_id,
-        //         tag_name: { in: tag_names },
-        //     },
-        // });
     }
 
     private async pairPhotoTags(photoData: InsertedPhotoData[], allTags: Map<string, bigint>) {
@@ -108,14 +101,5 @@ export class TagService {
             data: photoTags,
             skipDuplicates: true,
         });
-
-        // return await this.prisma.photo_tags.findMany({
-        //     where: {
-        //         OR: photoTags.map(pt => ({
-        //             photo_id: pt.photo_id,
-        //             tag_id: pt.tag_id,
-        //         })),
-        //     },
-        // });
     }
 }

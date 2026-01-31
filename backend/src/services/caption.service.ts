@@ -35,8 +35,19 @@ export class CaptionService {
         });
     }
 
-    async searchCaptions(query: string, limit = 20) {
-        if (!query.trim()) return [];
+    async searchCaptions(
+        query: string,
+        match: 'any' | 'all',
+        userId: bigint,
+        limit = 20
+    ) {
+        if (query.length === 0) return [];
+
+        const queryString = (match === 'all')
+            ? query // 'abc xyz' -> match abc AND xyz
+            : query.split(/\s+/).join(' OR '); // -> match abc OR xyz
+
+        // console.log('[searchCaptions] queryString:', queryString);
 
         return this.prisma.$queryRaw<
             Array<{
@@ -48,14 +59,68 @@ export class CaptionService {
             SELECT
                 c.photo_id,
                 c.caption,
+                p.user_id,
                 ts_rank(
                     c.caption_tsv,
-                    websearch_to_tsquery('english', ${query})
+                    websearch_to_tsquery('english', ${queryString})
                 ) AS rank
             FROM captions c
-            WHERE c.caption_tsv @@ websearch_to_tsquery('english', ${query})
+            JOIN photos p ON p.id = c.photo_id
+            WHERE
+                p.user_id = ${userId}
+                AND
+                c.caption_tsv @@ websearch_to_tsquery('english', ${queryString})
             ORDER BY rank DESC
-            LIMIT ${limit}
+            LIMIT ${limit};
+        `);
+    }
+
+    async searchCaptionsAndTags(
+        query: string,
+        tags: string[],
+        match: 'any' | 'all',
+        userId: bigint,
+        limit = 20
+    ) {
+        if (query.length === 0) return [];
+
+        const queryString = (match === 'all')
+            ? query // 'abc xyz' -> match abc AND xyz
+            : query.split(/\s+/).join(' OR '); // -> match abc OR xyz
+
+        // -- match === 'all': caption_match AND tag_match
+		// -- match === 'any': caption_match OR tag_match
+        const whereCondition = match === 'all'
+            ? Prisma.sql`c.caption_tsv @@ websearch_to_tsquery('english', ${queryString}) AND t.tag_name = ANY(${tags})`
+            : Prisma.sql`c.caption_tsv @@ websearch_to_tsquery('english', ${queryString}) OR t.tag_name = ANY(${tags})`;
+
+        // console.log('[searchCaptionsAndTags] queryString:', queryString);
+        // console.log('[searchCaptionsAndTags] whereCondition:', whereCondition);
+
+        return this.prisma.$queryRaw<
+            Array<{
+                photo_id: bigint;
+                caption: string;
+                rank: number;
+            }>
+        >(Prisma.sql`
+            SELECT DISTINCT
+                c.photo_id,
+                c.caption,
+                ts_rank(
+                    c.caption_tsv,
+                    websearch_to_tsquery('english', ${queryString})
+                ) AS rank
+            FROM photos p
+            LEFT JOIN captions c ON p.id = c.photo_id 
+            LEFT JOIN photo_tags pt ON p.id = pt.photo_id 
+            LEFT JOIN tags t ON t.id = pt.tag_id 
+            WHERE
+                p.user_id = ${userId}
+                AND p.deleted_at IS NULL
+                AND (${whereCondition})
+            ORDER BY rank DESC
+            LIMIT ${limit};
         `);
     }
 }

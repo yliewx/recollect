@@ -56,7 +56,7 @@ export class PhotoController {
             // HANDLE TAG INSERTION
             // extract all unique tag names to insert into tags table (if it doesn't exist)
             // insert (photo_id, tag_id) into photo_tags table
-            const insertedTags = await this.tagService.applyPhotoTags(insertedPhotoData, user_id);
+            const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id);
             // console.log('inserted tags:', insertedTags);
 
             // HANDLE CAPTION INSERTION
@@ -77,7 +77,7 @@ export class PhotoController {
         const { tag, caption, match } = request.query as {
             tag?: string;
             caption?: string;
-            match?: 'any' | 'all'
+            match: 'any' | 'all'
         };
         const tags = (tag || '').split(',').filter(Boolean);
         // const captions = (caption || '').split(',').filter(Boolean);
@@ -101,15 +101,58 @@ export class PhotoController {
             }
             // 3. captions only
             if (hasCaptionSearch && !hasTagFilter) {
-                const photos = await this.captionService.searchCaptions(captions);
-                console.log('CAPTION SEARCH RESULTS:', photos);
+                const photos = await this.captionService.searchCaptions(captions, match, user_id);
+                // console.log('CAPTION SEARCH RESULTS:', photos);
                 return reply.status(200).send({ photos });
             }
             // 4. tags + captions
-
-            // photos.forEach((photo, i) => console.log(`retrieved user ${user_id}'s photo[${i}]:`, photo));
+            const photos = await this.captionService.searchCaptionsAndTags(
+                captions,
+                tags,
+                match,
+                user_id
+            );
+            // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
+            return reply.status(200).send({ photos });
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
+            return reply.sendError(err);
+        }
+    }
+
+    // PATCH /photos/:id/tags
+    /*
+    update tag:
+    - create tags_to_insert if doesn't exist (get tag_id)
+    update photo_tag:
+    - delete (photo_id, tags_to_remove)
+    - insert (photo_id, tags_to_insert)
+    update tag:
+    - hard delete tags_to_remove if no more in photo_tag */
+    // async updatePhotoTags(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    //     const user_id = request.user.id;
+    //     const photo_id = request.params.id;
+    //     const { tags_to_insert, tags_to_remove } = request.body as {
+    //         tags_to_insert?: string;
+    //         tags_to_remove?: string;
+    //     };
+    //     const addTags = (tags_to_insert || '').split(',').filter(Boolean);
+    //     const removeTags = (tags_to_remove || '').split(',').filter(Boolean);
+    //     console.log('addTags:', addTags);
+    //     console.log('removeTags:', removeTags);
+    // }
+
+    // PATCH /photos/:id/caption
+    async updateCaption(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+        const user_id = request.user.id;
+        const photo_id = request.params.id;
+        const { caption } = request.body as { caption: string };
+
+        try {
+            const newCaption = await this.captionService.updateCaption(photo_id, caption);
+            return reply.status(200).send({ caption: newCaption });
+        } catch (err) {
+            console.error('Error in PhotoController.updateCaption:', err);
             return reply.sendError(err);
         }
     }

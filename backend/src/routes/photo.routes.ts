@@ -29,6 +29,38 @@ const querySchema = {
     }
 };
 
+const updateTagsSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            tags_to_insert: {
+                type: 'array',
+                items: { type: 'string' },
+            },
+            tags_to_remove: {
+                type: 'array',
+                items: { type: 'string' },
+            },
+        },
+        additionalProperties: false,
+        anyOf: [
+            { required: ['tags_to_insert'] },
+            { required: ['tags_to_remove'] },
+        ],
+    }
+};
+
+const updateCaptionSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            caption: { type: 'string' },
+        },
+        required: ['caption'],
+        additionalProperties: false,
+    }
+};
+
 export async function photoRoutes(app: FastifyInstance) {
     const photoModel = new PhotoModel(app.prisma);
     const tagService = new TagService(app.prisma);
@@ -46,6 +78,22 @@ export async function photoRoutes(app: FastifyInstance) {
 
         // upload photos
         app.post('/photos', photoController.upload.bind(photoController));
+
+        // update photo tags
+        // app.patch<{ Params: { id: bigint } }>(
+        //     '/photos/:id/tags',
+        //     { schema: updateTagsSchema },
+        //     photoController.updatePhotoTags.bind(photoController)
+        // );
+
+        // update photo caption
+        app.patch<{ Params: { id: bigint } }>(
+            '/photos/:id/caption',
+            { schema: updateCaptionSchema },
+            photoController.updateCaption.bind(photoController)
+        );
+
+        // delete photos
         app.delete<{ Params: { id: bigint } }>(
             '/photos/:id',
             photoController.delete.bind(photoController)
