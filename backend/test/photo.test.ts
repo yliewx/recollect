@@ -6,6 +6,7 @@ import { uploadsDir, rootDir } from '@/types/constants.js';
 import path from 'path';
 import fs from 'fs';
 import FormData from 'form-data';
+import { URLSearchParams } from 'url';
 
 async function createTestUser(app: FastifyInstance): Promise<string> {
     const response = await app.inject({
@@ -50,6 +51,13 @@ describe('PHOTO FLOW TESTS:', () => {
                     tags?: string[];
                 }[]
             };
+            const captions: string[] = [
+                'Cat sitting on the beach watching a golden sunset',
+                'A peaceful sunset at the beach while a cat naps nearby',
+                'Golden sunset over the beach with waves crashing softly',
+                'Sleepy cat curled up by the window on a rainy afternoon',
+                'Afternoon walk through the city with coffee and music'
+            ];
 
             // read and append files to form data
             for (let i = 0; i < 5; i++) {
@@ -60,7 +68,7 @@ describe('PHOTO FLOW TESTS:', () => {
                 filePaths.push(filePath);
                 metadata.items.push({
                     filename,
-                    caption: i % 2 ? `Caption ${i}` : `Parsley ${i}`,
+                    caption: captions[i],
                     tags: [`tag_${i}`, 'common']
                 });
             }
@@ -141,7 +149,7 @@ describe('PHOTO FLOW TESTS:', () => {
         });
     });
 
-    describe('[GET /photos] -> get all photos', () => {
+    describe('[GET /photos] -> get all photos (no filters)', () => {
         it('should get 6 photos', async () => {
            const response = await app.inject({
                 method: 'GET',
@@ -157,6 +165,96 @@ describe('PHOTO FLOW TESTS:', () => {
             expect(body).to.have.property('photos');
             expect(Array.isArray(body.photos)).to.equal(true);
             expect(body.photos.length).to.equal(6);
+        });
+    });
+
+    describe('[GET /photos] -> search by tags only', () => {
+        it(`should get 5 photos tagged with 'common'`, async () => {
+            const queryParams = {
+                tag: ['common']
+            };
+            const queryString = new URLSearchParams(queryParams).toString();
+            const response = await app.inject({
+                method: 'GET',
+                url: `/photos?${queryString}`,
+                headers: {
+                    'x-user-id': userId,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
+            expect(body.photos.length).to.equal(5);
+        });
+
+        it(`should get 3 photos tagged with 'tag_1' OR 'tag_0' OR 'tag_4'`, async () => {
+            const queryParams = {
+                tag: ['tag_1', 'tag_0', 'tag_4'],
+                match: ['any']
+            };
+            const queryString = new URLSearchParams(queryParams).toString();
+            const response = await app.inject({
+                method: 'GET',
+                url: `/photos?${queryString}`,
+                headers: {
+                    'x-user-id': userId,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
+            expect(body.photos.length).to.equal(3);
+        });
+
+        it(`should get 1 photo tagged with 'common' AND 'tag_0'`, async () => {
+            const queryParams = {
+                tag: ['common', 'tag_0'],
+                match: ['all']
+            };
+            const queryString = new URLSearchParams(queryParams).toString();
+            const response = await app.inject({
+                method: 'GET',
+                url: `/photos?${queryString}`,
+                headers: {
+                    'x-user-id': userId,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
+            expect(body.photos.length).to.equal(1);
+        });
+    });
+
+    describe('[GET /photos] -> search by caption only', () => {
+        it('should get photos by caption', async () => {
+            const queryParams = {
+                caption: ['sunset beach cat']
+            };
+            const queryString = new URLSearchParams(queryParams).toString();
+            console.log('queryString:', queryString);
+            const response = await app.inject({
+                method: 'GET',
+                url: `/photos?${queryString}`,
+                headers: {
+                    'x-user-id': userId,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('photos');
+            expect(Array.isArray(body.photos)).to.equal(true);
         });
     });
 

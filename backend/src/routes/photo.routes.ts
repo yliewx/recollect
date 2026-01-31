@@ -10,19 +10,24 @@ eg.
     /photos?caption=x
     /photos?tag=y
     /photos?caption=x&tag=y
+
+    /photos?tag=x,y&match=any -> (default) find photos tagged with x OR y
+    /photos?tag=x,y&match=all -> find photos tagged with x AND y
  */
-const schema = {
+const querySchema = {
     querystring: {
         type: 'object',
         properties: {
             tag: { type: 'string' },
-            caption: { type: 'string' }
+            caption: { type: 'string' },
+            match: {
+                type: 'string',
+                enum: ['any', 'all'],
+                default: 'any',
+            },
         }
     }
 };
-
-// const tags = (request.query.tag || '').split(',').filter(Boolean);
-// const captions = (request.query.caption || '').split(',').filter(Boolean);
 
 export async function photoRoutes(app: FastifyInstance) {
     const photoModel = new PhotoModel(app.prisma);
@@ -34,8 +39,10 @@ export async function photoRoutes(app: FastifyInstance) {
     app.register(async function protectedPhotoRoutes(app) {
         app.register(userContext);
 
-        // get all photos belonging to user
-        app.get('/photos', photoController.findAllFromUser.bind(photoController));
+        // get photos belonging to user (optional query string)
+        app.get('/photos', { schema: querySchema },
+            photoController.findAllFromUser.bind(photoController)
+        );
 
         // upload photos
         app.post('/photos', photoController.upload.bind(photoController));

@@ -1,4 +1,4 @@
-import { Photo } from "@/types/models.js";
+import { Photo, Tag } from "@/types/models.js";
 import { PrismaClient } from '@/generated/prisma/client.js';
 
 export class PhotoModel {
@@ -52,20 +52,58 @@ export class PhotoModel {
         });
     }
 
-    // get user's photos by tag id
-    async taggedWith(tag_id: bigint, user_id: bigint): Promise<Photo[]> {
-        return await this.prisma.photos.findMany({
+    // get every existing photo from the user that matches the tags, based on match type
+    async findByTags(
+        tags: string[],
+        match: 'any' | 'all' = 'any',
+        user_id: bigint
+    ) {
+        if (tags.length === 0) return [];
+
+        return this.prisma.photos.findMany({
             where: {
                 user_id,
                 deleted_at: null,
+                ... this.filterByMatchType(tags, match),
+            },
+            select: {
+                id: true,
+                file_path: true,
                 photo_tags: {
-                    some: {
-                        tags: { id: tag_id }
-                    }
+                    select: {
+                        tags: {
+                            select: { tag_name: true },
+                        },
+                    },
                 },
             },
             orderBy: { uploaded_at: 'desc' },
         });
+    }
+
+    private filterByMatchType(tags: string[], match: 'any' | 'all') {
+        if (tags.length === 0) return undefined;
+
+        // return all photos that match ALL tags
+        if (match === 'all') {
+            return {
+                AND: tags.map(tag => ({
+                    photo_tags: {
+                        some: {
+                            tags: { tag_name: tag },
+                        },
+                    },
+                })),
+            };
+        }
+        // return all photos that match ANY of the tags
+        return {
+                photo_tags: {
+                some: {
+                    tags: { tag_name: { in: tags } },
+                },
+            },
+        };
     }
 
     // get user's deleted photos

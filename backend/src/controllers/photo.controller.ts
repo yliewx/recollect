@@ -24,6 +24,7 @@ export class PhotoController {
         const user_id = request.user.id;
 
         try {
+            //TODO: wrap in transaction
             /* uploadPhotos validates & uploads images; returns an array of PhotoData objects with these fields:
                 file_path: string;
                 caption?: string;
@@ -52,10 +53,6 @@ export class PhotoController {
             })
             console.log('insertedPhotoData:', insertedPhotoData);
 
-            insertedPhotoData.forEach(async (photo, i) => {
-                console.log(`UPLOADED PHOTO ${i}:`, photo);
-            });
-
             // HANDLE TAG INSERTION
             // extract all unique tag names to insert into tags table (if it doesn't exist)
             // insert (photo_id, tag_id) into photo_tags table
@@ -77,12 +74,40 @@ export class PhotoController {
     // GET /photos
     async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
+        const { tag, caption, match } = request.query as {
+            tag?: string;
+            caption?: string;
+            match?: 'any' | 'all'
+        };
+        const tags = (tag || '').split(',').filter(Boolean);
+        // const captions = (caption || '').split(',').filter(Boolean);
+        const captions = (caption || '').trim();
+        const hasTagFilter = tags.length > 0;
+        const hasCaptionSearch = captions.length > 0;
+        console.log('tags:', tags);
+        console.log('captions:', captions);
+        console.log('match:', match);
 
         try {
-            const photos = await this.photoModel.findAllFromUser(user_id);
-            photos.forEach((photo, i) => console.log(`retrieved user ${user_id}'s photo[${i}]:`, photo));
+            // 1. no filters: get all photos from user
+            if (!hasTagFilter && !hasCaptionSearch) {
+                const photos = await this.photoModel.findAllFromUser(user_id);
+                return reply.status(200).send({ photos });
+            }
+            // 2. tags only
+            if (hasTagFilter && !hasCaptionSearch) {
+                const photos = await this.photoModel.findByTags(tags, match, user_id);
+                return reply.status(200).send({ photos });
+            }
+            // 3. captions only
+            if (hasCaptionSearch && !hasTagFilter) {
+                const photos = await this.captionService.searchCaptions(captions);
+                console.log('CAPTION SEARCH RESULTS:', photos);
+                return reply.status(200).send({ photos });
+            }
+            // 4. tags + captions
 
-            return reply.status(200).send({ photos });
+            // photos.forEach((photo, i) => console.log(`retrieved user ${user_id}'s photo[${i}]:`, photo));
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);
