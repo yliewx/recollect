@@ -26,7 +26,7 @@ export async function initTestContext() {
 
     // create shared photos
     const photos = await db.photos.createManyAndReturn({
-        data: Array.from({ length: 10 }).map((_, i) => ({
+        data: Array.from({ length: 100 }).map((_, i) => ({
             user_id: testContext.user.id,
             file_path: `test_${Date.now()}_${i}.jpg`
         }))

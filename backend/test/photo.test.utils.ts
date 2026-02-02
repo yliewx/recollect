@@ -62,3 +62,17 @@ export async function getPhotos(app: any, userId: string, query?: any) {
     });
 }
 
+// helper to perform GET /albums/:id/photos with optional query params
+export async function getAlbumPhotos(app: any, userId: string, albumId: string, query?: any) {
+    let url = `/albums/${albumId}/photos`;
+    if (query) {
+        const queryString = new URLSearchParams(query).toString();
+        url += `?${queryString}`;
+    }
+
+    return app.inject({
+        method: 'GET',
+        url,
+        headers: { 'x-user-id': userId },
+    });
+}

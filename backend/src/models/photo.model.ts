@@ -1,5 +1,12 @@
-import { Photo, Tag } from "@/types/models.js";
+import { Photo, Tag, PhotoTag, Caption } from "@/types/models.js";
 import { PrismaClient } from '@/generated/prisma/client.js';
+import { paginateFindMany, buildCursorOptions } from "@/services/paginate.utils.js";
+
+export type PhotoWithMetadata = Photo & {
+    captions: Caption | null;
+    photo_tags: (PhotoTag & { tags: Tag })[];
+    tags?: Tag[];
+};
 
 export class PhotoModel {
     constructor(private prisma: PrismaClient) {}
@@ -31,17 +38,95 @@ export class PhotoModel {
     }
 
     // get all active photos from specific user
-    async findAllFromUser(user_id: bigint): Promise<Photo[]> {
-        return await this.prisma.photos.findMany({
+    // async findAllFromUser(user_id: bigint): Promise<Photo[]> {
+    //     return await this.prisma.photos.findMany({
+    //         where: {
+    //             user_id,
+    //             deleted_at: null
+    //         },
+    //         orderBy: { uploaded_at: 'desc' },
+    //     });
+    // }
+    async findAllFromUser(
+        user_id: bigint,
+        cursor?: bigint,
+        take = 20
+    ): Promise<{ photos: PhotoWithMetadata[], nextCursor: bigint | null }> {
+        const photos = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
+            ...buildCursorOptions(cursor),
+            take,
             where: {
                 user_id,
                 deleted_at: null
             },
-            orderBy: { uploaded_at: 'desc' },
+            include: {
+                captions: true,
+                photo_tags: {
+                    include: {
+                        tags: true,
+                    },
+                },
+            },
+            orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
         });
+
+        // get next cursor: bookmark the last id in the result set
+        const nextCursor = (photos.length > 0)
+            ? photos[photos.length - 1].id
+            : null;
+        
+        return { photos, nextCursor };
     }
 
-    // return photos with matching photo_ids that are owned by the user
+    // get all active photos + photo metadata in an album
+    async findAllFromAlbum(
+        album_id: bigint,
+        user_id: bigint,
+        cursor?: bigint,
+        take = 20
+    ): Promise<{ photos: PhotoWithMetadata[], nextCursor: bigint | null }> {
+        const photos = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
+            ...buildCursorOptions(cursor),
+            take,
+            where: {
+                user_id,
+                deleted_at: null,
+                album_photos: {
+                    some: {
+                        album_id,
+                        albums: {
+                            user_id,
+                            deleted_at: null,
+                        }
+                    },
+                },
+            },
+            include: {
+                captions: true,
+                photo_tags: {
+                    include: {
+                        tags: true,
+                    },
+                },
+            },
+            orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
+        });
+
+        // flatten nested tags
+        const result = photos.map(p => ({
+            ...p,
+            tags: p.photo_tags.flatMap(pt => pt.tags),
+        }));
+
+        // get next cursor: bookmark the last id in the result set
+        const nextCursor = (photos.length > 0)
+            ? photos[photos.length - 1].id
+            : null;
+        
+        return { photos: result, nextCursor };
+    }
+
+    // helper: return photos with matching photo_ids that are owned by the user
     async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
         return await this.prisma.photos.findMany({
             where: {
@@ -53,34 +138,70 @@ export class PhotoModel {
     }
 
     // get every existing photo from the user that matches the tags, based on match type
+    // async findByTags(
+    //     tags: string[],
+    //     match: 'any' | 'all' = 'any',
+    //     user_id: bigint
+    // ) {
+    //     if (tags.length === 0) return [];
+
+    //     return await this.prisma.photos.findMany({
+    //         where: {
+    //             user_id,
+    //             deleted_at: null,
+    //             ... this.filterByMatchType(tags, match),
+    //         },
+    //         select: {
+    //             id: true,
+    //             file_path: true,
+    //             photo_tags: {
+    //                 select: {
+    //                     tags: {
+    //                         select: { tag_name: true },
+    //                     },
+    //                 },
+    //             },
+    //         },
+    //         orderBy: { uploaded_at: 'desc' },
+    //     });
+    // }
     async findByTags(
         tags: string[],
         match: 'any' | 'all' = 'any',
-        user_id: bigint
+        user_id: bigint,
+        cursor?: bigint,
+        take = 20
     ) {
         if (tags.length === 0) return [];
 
-        return this.prisma.photos.findMany({
+        const photos = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
+            ...buildCursorOptions(cursor),
+            take,
             where: {
                 user_id,
                 deleted_at: null,
                 ... this.filterByMatchType(tags, match),
             },
-            select: {
-                id: true,
-                file_path: true,
+            include: {
+                captions: true,
                 photo_tags: {
-                    select: {
-                        tags: {
-                            select: { tag_name: true },
-                        },
+                    include: {
+                        tags: true,
                     },
                 },
             },
-            orderBy: { uploaded_at: 'desc' },
+            orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
         });
+
+        // get next cursor: bookmark the last id in the result set
+        const nextCursor = (photos.length > 0)
+            ? photos[photos.length - 1].id
+            : null;
+        
+        return { photos, nextCursor };
     }
 
+    // helper function for setting tag filter strictness
     private filterByMatchType(tags: string[], match: 'any' | 'all') {
         if (tags.length === 0) return undefined;
 
@@ -106,6 +227,23 @@ export class PhotoModel {
         };
     }
 
+    // get all tags on a photo
+    async getTagsOnPhoto(photo_id: bigint) {
+        return await this.prisma.photo_tags.findMany({
+            where: {
+                photo_id
+            },
+            select: {
+                tags: {
+                    select: {
+                        id: true,
+                        tag_name: true,
+                    },
+                },
+            },
+        });
+    }
+
     // get user's deleted photos
     async findDeleted(user_id: bigint): Promise<Photo[]> {
         return await this.prisma.photos.findMany({
@@ -119,7 +257,7 @@ export class PhotoModel {
 
     // soft delete
     async delete(photo_id: bigint, user_id: bigint): Promise<Photo> {
-        return this.prisma.photos.update({
+        return await this.prisma.photos.update({
             where: {
                 id: photo_id,
                 user_id
@@ -130,7 +268,7 @@ export class PhotoModel {
 
     // restore deleted photo
     async restore(photo_id: bigint, user_id: bigint): Promise<Photo> {
-        return this.prisma.photos.update({
+        return await this.prisma.photos.update({
             where: {
                 id: photo_id,
                 user_id,
@@ -140,17 +278,3 @@ export class PhotoModel {
         });
     }
 }
-
-/*
-    const query = `
-
-    `;
-    const values = [];
-    const result = await this.db.query(query, values);
-
-    if (!result.rows || result.rows.length === 0) {
-        throw new Error();
-    }
-
-    return result.rows[0];
-*/

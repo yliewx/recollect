@@ -25,7 +25,15 @@ const querySchema = {
                 enum: ['any', 'all'],
                 default: 'any',
             },
-        }
+            limit: {
+                type: 'integer',
+                minimum: 1,
+                maximum: 50,
+                default: 20,
+            },
+            cursor_rank: { type: 'number' }, // only applicable for caption FTS
+            cursor_photo_id: { type: 'string' },
+        },
     }
 };
 
@@ -65,14 +73,20 @@ export async function photoRoutes(app: FastifyInstance) {
     const photoModel = new PhotoModel(app.prisma);
     const tagService = new TagService(app.prisma);
     const captionService = new CaptionService(app.prisma);
-    const photoController = new PhotoController(photoModel, tagService, captionService);
+    const photoController = new PhotoController(
+        app.prisma,
+        photoModel,
+        tagService,
+        captionService
+    );
 
     // protected
     app.register(async function protectedPhotoRoutes(app) {
         app.register(userContext);
 
         // get photos belonging to user (optional query string)
-        app.get('/photos', { schema: querySchema },
+        app.get('/photos',
+            { schema: querySchema },
             photoController.findAllFromUser.bind(photoController)
         );
 
@@ -80,11 +94,11 @@ export async function photoRoutes(app: FastifyInstance) {
         app.post('/photos', photoController.upload.bind(photoController));
 
         // update photo tags
-        // app.patch<{ Params: { id: bigint } }>(
-        //     '/photos/:id/tags',
-        //     { schema: updateTagsSchema },
-        //     photoController.updatePhotoTags.bind(photoController)
-        // );
+        app.patch<{ Params: { id: bigint } }>(
+            '/photos/:id/tags',
+            { schema: updateTagsSchema },
+            photoController.updatePhotoTags.bind(photoController)
+        );
 
         // update photo caption
         app.patch<{ Params: { id: bigint } }>(
@@ -93,10 +107,16 @@ export async function photoRoutes(app: FastifyInstance) {
             photoController.updateCaption.bind(photoController)
         );
 
-        // delete photos
+        // delete photo
         app.delete<{ Params: { id: bigint } }>(
             '/photos/:id',
             photoController.delete.bind(photoController)
+        );
+
+        // restore deleted photo
+        app.patch<{ Params: { id: bigint } }>(
+            '/photos/:id/restore',
+            photoController.restore.bind(photoController)
         );
     });
 }

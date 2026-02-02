@@ -1,5 +1,6 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import connectPrisma from './plugins/prisma.js';
+import connectRedis from './plugins/redis.js'
 import setUploadsDir from './plugins/uploads.js';
 import setErrorReply from './plugins/reply.error.js';
 import setBigIntHandler from './plugins/bigint.handler.js';
@@ -20,6 +21,9 @@ export function buildApp(options = {}): FastifyInstance {
 
     // register prisma and connect to postgres db
     app.register(connectPrisma);
+
+    // register redis
+    app.register(connectRedis);
 
     // handle file uploads
     app.register(setUploadsDir);

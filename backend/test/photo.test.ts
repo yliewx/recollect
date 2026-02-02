@@ -8,6 +8,7 @@ import fs from 'fs';
 import FormData from 'form-data';
 import { URLSearchParams } from 'url';
 import { createPhotoForm, assertPhotoUpload, getPhotos } from './photo.test.utils.js';
+import { PhotoWithMetadata } from '@/models/photo.model.js';
 
 async function createTestUser(app: FastifyInstance): Promise<string> {
     const response = await app.inject({
@@ -95,15 +96,109 @@ describe('PHOTO FLOW TESTS:', () => {
         });
     });
 
-    describe('[GET /photos] -> get all photos', () => {
-        it('should get all photos (currently 6)', async () => {
-            const response = await getPhotos(app, userId);
+    // describe('[GET /photos] -> get all photos', () => {
+    //     it('should get all photos (currently 6)', async () => {
+    //         const response = await getPhotos(app, userId);
+    //         expect(response.statusCode).to.equal(200);
+
+    //         const body = response.json();
+    //         expect(body).to.have.property('photos');
+    //         expect(Array.isArray(body.photos)).to.be.true;
+    //         expect(body.photos.length).to.equal(6);
+    //     });
+    // });
+
+    describe('[GET /photos] cursor pagination', () => {
+        it('returns first page with nextCursor', async () => {
+            const response = await getPhotos(app, userId, { limit: 2 });
             expect(response.statusCode).to.equal(200);
 
             const body = response.json();
-            expect(body).to.have.property('photos');
-            expect(Array.isArray(body.photos)).to.be.true;
-            expect(body.photos.length).to.equal(6);
+            expect(body.photos).to.have.length(2);
+            expect(body.nextCursor).to.exist;
+
+            // convert ids back to numbers for comparison
+            const firstId = Number(body.photos[0].id);
+            const secondId = Number(body.photos[1].id);
+            const nextCursor = Number(body.nextCursor);
+            console.log('firstId:', firstId);
+            console.log('secondId:', secondId);
+            console.log('nextCursor:', nextCursor);
+
+            // ordering check
+            expect(firstId).to.be.greaterThan(secondId);
+        });
+
+        it('returns second page without duplicates', async () => {
+            const first = await getPhotos(app, userId, { limit: 2 });
+            const { nextCursor } = first.json();
+
+            const second = await getPhotos(app, userId, {
+                limit: 2,
+                cursor_photo_id: nextCursor.toString(),
+            });
+
+            const page1Ids = (first.json().photos as PhotoWithMetadata[])
+                .map((p: PhotoWithMetadata) => Number(p.id));
+            const page2Ids = (second.json().photos as PhotoWithMetadata[])
+                .map((p: PhotoWithMetadata) => Number(p.id));
+
+            console.log('page1Ids:', page1Ids);
+            console.log('page2Ids:', page2Ids);
+
+            expect(page2Ids).to.have.length(2);
+
+            // No overlap
+            page2Ids.forEach(id => {
+                expect(page1Ids).to.not.include(id);
+            });
+        });
+
+        it('eventually returns empty results with no cursor', async () => {
+            let cursor: string | null | undefined = undefined;
+            const seen = new Set<string>();
+
+            while (true) {
+                const query: Record<string, any> = { limit: 2 };
+                if (cursor !== undefined && cursor !== null) {
+                    query.cursor_photo_id = cursor;
+                }
+
+                const res = await getPhotos(app, userId, query);
+
+                const body = res.json();
+                const photos = body.photos ?? [];
+                const nextCursor = body.nextCursor;
+
+                for (const p of photos) {
+                    const id = String(p.id);
+                    expect(seen.has(id)).to.be.false;
+                    seen.add(id);
+                }
+
+                if (!nextCursor || photos.length === 0) {
+                    break;
+                }
+
+                cursor = nextCursor;
+            }
+
+            // total count matches seed data
+            expect(seen.size).to.equal(6);
+        });
+
+        it('orders by uploaded_at desc then id desc', async () => {
+            const res = await getPhotos(app, userId, { limit: 6 });
+            const photos = res.json().photos;
+
+            for (let i = 0; i < photos.length - 1; i++) {
+                const a = photos[i];
+                const b = photos[i + 1];
+
+                if (a.uploaded_at === b.uploaded_at) {
+                    expect(a.id).to.be.greaterThan(b.id);
+                }
+            }
         });
     });
 
@@ -231,6 +326,28 @@ describe('PHOTO FLOW TESTS:', () => {
         });
     });
 
+    describe('[PATCH /photos/:id/tags] -> update photo tags)', () => {
+        it('should update the tags', async () => {
+           const response = await app.inject({
+                method: 'PATCH',
+                url: `/photos/${photoIds[4]}/tags`,
+                headers: {
+                    'x-user-id': userId,
+                },
+                body: {
+                    tags_to_insert: ['dog', 'matcha', 'coconut', 'common', 'dog'],
+                    tags_to_remove: ['common', 'tag_4', 'cat']
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            
+            const body = response.json();
+            expect(body).to.have.property('tags');
+            console.log('UPDATED TAGS:', body.tags);
+        });
+    });
+
     describe('[DELETE /photos] -> delete photo', () => {
         it('should delete a photo', async () => {
             const response = await app.inject({
@@ -242,6 +359,21 @@ describe('PHOTO FLOW TESTS:', () => {
             });
 
             expect(response.statusCode).to.equal(200);
+        });
+
+        it('should restore the deleted photo', async () => {
+            const response = await app.inject({
+                method: 'PATCH',
+                url: `/photos/${photoIds[0]}/restore`,
+                headers: {
+                    'x-user-id': userId,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+            const body = response.json();
+            expect(body).to.have.property('photo');
+            console.log('body.photo:', body.photo);
         });
     });
 });

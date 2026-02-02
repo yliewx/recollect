@@ -12,7 +12,7 @@ services:
       - .env
     depends_on:
       - postgres
-      # - redis
+      - redis
     networks:
       - recollect
     volumes:
@@ -37,11 +37,28 @@ services:
       - ./postgres/init:/docker-entrypoint-initdb.d
     # restart: always
 
+#----------------------------------REDIS---------------------------------
+
+  redis:
+    image: redis:8-bookworm
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    networks:
+      - recollect
+    volumes:
+      - redis_data:/data
+    # restart: always
+
 #--------------------------------VOLUMES---------------------------------
 
 volumes:
   postgres_data:
     name: postgres_data
+    driver: local
+  redis_data:
+    name: redis_data
     driver: local
 
 #--------------------------------NETWORKS--------------------------------

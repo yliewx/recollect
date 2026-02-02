@@ -32,6 +32,15 @@ docker logs backend
 │   ├── prisma/
 │   │   └── schema.prisma
 │   ├── src/ # contains backend source code
+│   │   ├── app.ts
+│   │   ├── controllers/
+│   │   ├── generated/
+│   │   ├── models/
+│   │   ├── plugins/
+│   │   ├── routes/
+│   │   ├── server.ts # entrypoint
+│   │   ├── services/
+│   │   └── types/
 │   ├── test/ # unit tests
 │   └── tsconfig.json
 ├── docker-compose.dev.yml # for testing

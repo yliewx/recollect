@@ -35,10 +35,51 @@ export class CaptionService {
         });
     }
 
+    // async searchCaptions(
+    //     query: string,
+    //     match: 'any' | 'all',
+    //     userId: bigint,
+    //     limit = 20
+    // ) {
+    //     if (query.length === 0) return [];
+
+    //     const queryString = (match === 'all')
+    //         ? query // 'abc xyz' -> match abc AND xyz
+    //         : query.split(/\s+/).join(' OR '); // -> match abc OR xyz
+
+    //     // console.log('[searchCaptions] queryString:', queryString);
+
+    //     return this.prisma.$queryRaw<
+    //         Array<{
+    //             photo_id: bigint;
+    //             caption: string;
+    //             rank: number;
+    //         }>
+    //     >(Prisma.sql`
+    //         SELECT
+    //             c.photo_id,
+    //             c.caption,
+    //             p.user_id,
+    //             ts_rank(
+    //                 c.caption_tsv,
+    //                 websearch_to_tsquery('english', ${queryString})
+    //             ) AS rank
+    //         FROM captions c
+    //         JOIN photos p ON p.id = c.photo_id
+    //         WHERE
+    //             p.user_id = ${userId}
+    //             AND p.deleted_at IS NULL
+    //             AND c.caption_tsv @@ websearch_to_tsquery('english', ${queryString})
+    //         ORDER BY rank DESC, c.photo_id DESC
+    //         LIMIT ${limit};
+    //     `);
+    // }
+
     async searchCaptions(
         query: string,
         match: 'any' | 'all',
         userId: bigint,
+        cursor?: { rank: number, photo_id: bigint },
         limit = 20
     ) {
         if (query.length === 0) return [];
@@ -49,30 +90,56 @@ export class CaptionService {
 
         // console.log('[searchCaptions] queryString:', queryString);
 
-        return this.prisma.$queryRaw<
+        const whereCursorCondition = cursor
+            ? Prisma.sql`
+                WHERE
+                    (
+                        rank < ${cursor.rank}
+                        OR (rank = ${cursor.rank} AND photo_id < ${cursor.photo_id})
+                    )
+            `
+            : Prisma.empty;
+
+        console.log('[searchCaptions] whereCursorCondition:', whereCursorCondition);
+
+        const photos = await this.prisma.$queryRaw<
             Array<{
                 photo_id: bigint;
                 caption: string;
                 rank: number;
             }>
         >(Prisma.sql`
-            SELECT
-                c.photo_id,
-                c.caption,
-                p.user_id,
-                ts_rank(
-                    c.caption_tsv,
-                    websearch_to_tsquery('english', ${queryString})
-                ) AS rank
-            FROM captions c
-            JOIN photos p ON p.id = c.photo_id
-            WHERE
-                p.user_id = ${userId}
-                AND
-                c.caption_tsv @@ websearch_to_tsquery('english', ${queryString})
-            ORDER BY rank DESC
+            WITH ranked AS (
+                SELECT
+                    c.photo_id,
+                    c.caption,
+                    p.user_id,
+                    ts_rank(
+                        c.caption_tsv,
+                        websearch_to_tsquery('english', ${queryString})
+                    ) AS rank
+                FROM captions c
+                JOIN photos p ON p.id = c.photo_id
+                WHERE
+                    p.user_id = ${userId}
+                    AND p.deleted_at IS NULL
+                    AND c.caption_tsv @@ websearch_to_tsquery('english', ${queryString})
+            )
+            SELECT *
+            FROM ranked
+            ${whereCursorCondition}
+            ORDER BY rank DESC, photo_id DESC
             LIMIT ${limit};
         `);
+
+        const nextCursor = photos.length > 0
+            ? {
+                rank: photos[photos.length - 1].rank,
+                photo_id: photos[photos.length - 1].photo_id,
+            }
+            : null;
+
+        return { photos, nextCursor };
     }
 
     async searchCaptionsAndTags(
