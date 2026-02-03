@@ -2,16 +2,18 @@ import { AlbumModel } from '@/models/album.model.js';
 import { PhotoModel } from '@/models/photo.model.js';
 import { FastifyReply, FastifyRequest } from "fastify";
 import { parseBigInt } from '@/plugins/bigint.handler.js';
-import { TagService } from '@/services/tag.service.js';
-import { CaptionService } from '@/services/caption.service.js';
+import { TagService, normalizeTags } from '@/services/tag.service.js';
+import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { debugPrint } from '@/utils/debug.print.js';
+import { CacheService } from '@/services/cache.service.js';
 
 export class AlbumController {
     constructor(
         private albumModel: AlbumModel,
         private photoModel: PhotoModel,
         private tagService: TagService,
-        private captionService: CaptionService
+        private captionService: CaptionService,
+        private cache: CacheService
     ) {}
 
     // POST /albums
@@ -77,9 +79,15 @@ export class AlbumController {
             cursor_rank?: number;
             cursor_photo_id?: string;
         };
-        let tags = (tag || '').split(',').filter(Boolean);
-        tags = this.tagService.normalizeTags(tags);
-        const captions = (caption || '').trim();
+        // normalize tags and caption search
+        const tags = normalizeTags(
+            (tag ?? '').split(',').filter(Boolean)
+        );
+        const captions = normalizeCaption(caption ?? '');
+
+        // store whether tags and captions were present in query
+        const hasTagFilter = tags.length > 0;
+        const hasCaptionSearch = captions.length > 0;
 
         const cursor_id = cursor_photo_id !== undefined
             ? parseBigInt(cursor_photo_id, 'cursor_photo_id')
@@ -89,9 +97,6 @@ export class AlbumController {
         const cursor_fts = cursor_id && cursor_rank !== undefined
             ? { rank: cursor_rank, photo_id: cursor_id }
             : undefined;
-
-        const hasTagFilter = tags.length > 0;
-        const hasCaptionSearch = captions.length > 0;
 
         debugPrint({
             tags,
@@ -109,11 +114,11 @@ export class AlbumController {
         try {
             // 1. no filters: get all photos from album
             if (!hasTagFilter && !hasCaptionSearch) {
-                const result = await this.photoModel.findAllFromAlbum(
-                    album_id,
+                const result = await this.photoModel.findAllFromUser(
                     user_id,
                     cursor_id,
-                    limit
+                    limit,
+                    album_id
                 );
                 return reply.status(200).send(result);
             }
@@ -136,7 +141,8 @@ export class AlbumController {
                     match,
                     user_id,
                     cursor_fts,
-                    limit
+                    limit,
+                    album_id
                 );
                 // console.log('CAPTION SEARCH RESULTS:', photos);
                 return reply.status(200).send(result);
@@ -146,7 +152,10 @@ export class AlbumController {
                 captions,
                 tags,
                 match,
-                user_id
+                user_id,
+                cursor_fts,
+                limit,
+                album_id
             );
             // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
             return reply.status(200).send({ photos });
@@ -199,7 +208,6 @@ export class AlbumController {
 
         try {
             const album = await this.albumModel.restore(album_id, user_id);
-            console.log('restored album:', album);
 
             return reply.status(200).send({ album });
         } catch (err) {

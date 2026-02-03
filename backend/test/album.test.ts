@@ -4,7 +4,8 @@ import { buildApp } from '../app.js';
 import { FastifyInstance } from 'fastify';
 import { testContext, initTestContext } from './context.js';
 import { getAlbumPhotos } from './photo.test.utils.js';
-import { PhotoWithMetadata } from '@/models/photo.model.js';
+import { PhotoPayload } from '@/models/photo.model.js';
+import { debugPrint } from '@/utils/debug.print.js';
 
 // testContext has 1 dummy user with 10 photos, 1 album
 describe('ALBUM FLOW TESTS:', () => {
@@ -119,8 +120,8 @@ describe('ALBUM FLOW TESTS:', () => {
                 cursor_photo_id: nextCursor.toString(),
             });
 
-            const page1Ids = (first.json().photos as PhotoWithMetadata[]).map(p => Number(p.id));
-            const page2Ids = (second.json().photos as PhotoWithMetadata[]).map(p => Number(p.id));
+            const page1Ids = (first.json().photos as PhotoPayload[]).map(p => Number(p.id));
+            const page2Ids = (second.json().photos as PhotoPayload[]).map(p => Number(p.id));
 
             console.log('page1Ids:', page1Ids);
             console.log('page2Ids:', page2Ids);
@@ -163,7 +164,10 @@ describe('ALBUM FLOW TESTS:', () => {
 
         it('orders by uploaded_at desc then id desc', async () => {
             const res = await getAlbumPhotos(app, user.id, albumId, { limit: limitTake });
-            const photos = res.json().photos;
+            const photos = res.json().photos.map((p: PhotoPayload) => ({
+                ...p,
+                uploaded_at: p.uploaded_at ? new Date(p.uploaded_at) : null
+            }));
 
             for (let i = 0; i < photos.length - 1; i++) {
                 const a = photos[i];
@@ -236,7 +240,7 @@ describe('ALBUM FLOW TESTS:', () => {
             expect(response.statusCode).to.equal(200);
             const body = response.json();
             expect(body).to.have.property('album');
-            console.log('body.album:', body.album);
+            debugPrint(body.album, 'Restored Deleted Photo');
         });
     });
 })

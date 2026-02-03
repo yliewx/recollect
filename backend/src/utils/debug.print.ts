@@ -10,6 +10,8 @@ export function debugPrint(obj: Record<string, any>, title = 'Debug Info') {
 
         if (value === undefined || value === null) {
             displayValue = chalk.gray('(none)');
+        } else if (value instanceof Date) {
+            displayValue = chalk.magenta(value.toISOString());
         } else if (Array.isArray(value)) {
             displayValue = chalk.yellow(value.length ? value.join(', ') : '(empty array)');
         } else if (typeof value === 'object') {

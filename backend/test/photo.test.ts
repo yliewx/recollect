@@ -8,7 +8,8 @@ import fs from 'fs';
 import FormData from 'form-data';
 import { URLSearchParams } from 'url';
 import { createPhotoForm, assertPhotoUpload, getPhotos } from './photo.test.utils.js';
-import { PhotoWithMetadata } from '@/models/photo.model.js';
+import { PhotoPayload } from '@/models/photo.model.js';
+import { debugPrintNested } from '@/utils/debug.print.js';
 
 async function createTestUser(app: FastifyInstance): Promise<string> {
     const response = await app.inject({
@@ -77,6 +78,8 @@ describe('PHOTO FLOW TESTS:', () => {
             });
             
             assertPhotoUpload(response, uploadsDir, photoIds);
+            // const body = response.json();
+            // debugPrintNested(body.photos, 'Checking Photo Payload');
         });
     });
 
@@ -138,10 +141,10 @@ describe('PHOTO FLOW TESTS:', () => {
                 cursor_photo_id: nextCursor.toString(),
             });
 
-            const page1Ids = (first.json().photos as PhotoWithMetadata[])
-                .map((p: PhotoWithMetadata) => Number(p.id));
-            const page2Ids = (second.json().photos as PhotoWithMetadata[])
-                .map((p: PhotoWithMetadata) => Number(p.id));
+            const page1Ids = (first.json().photos as PhotoPayload[])
+                .map((p: PhotoPayload) => Number(p.id));
+            const page2Ids = (second.json().photos as PhotoPayload[])
+                .map((p: PhotoPayload) => Number(p.id));
 
             console.log('page1Ids:', page1Ids);
             console.log('page2Ids:', page2Ids);
@@ -189,7 +192,10 @@ describe('PHOTO FLOW TESTS:', () => {
 
         it('orders by uploaded_at desc then id desc', async () => {
             const res = await getPhotos(app, userId, { limit: 6 });
-            const photos = res.json().photos;
+            const photos = res.json().photos.map((p: PhotoPayload) => ({
+                ...p,
+                uploaded_at: p.uploaded_at ? new Date(p.uploaded_at) : null
+            }));
 
             for (let i = 0; i < photos.length - 1; i++) {
                 const a = photos[i];

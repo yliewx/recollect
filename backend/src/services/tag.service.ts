@@ -1,6 +1,23 @@
 import { InsertedPhotoData } from './photo.upload.js'
 import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
 import { PhotoTag } from '@/types/models.js';
+import { debugPrintNested } from '@/utils/debug.print.js';
+
+// helper for removing excess whitespace and removing empty tags
+export function normalizeTags(tags: string[]) {
+    const normalizedTags = new Set<string>(
+        (tags ?? [])
+            .map(tag =>
+                tag
+                    .trim()
+                    .replace(/\s+/g, ' ') // replace multiple spaces
+                    .toLowerCase()
+            )
+            .filter(Boolean)
+    );
+
+    return [... normalizedTags];
+}
 
 export class TagService {
     constructor(private prisma: PrismaClient) {}
@@ -60,16 +77,16 @@ export class TagService {
         const prisma = tx ?? this.prisma;
 
         try {
-            const insertTags = this.normalizeTags(tags_to_insert);
-            const removeTags = this.normalizeTags(tags_to_remove);
+            const insertTags = normalizeTags(tags_to_insert);
+            const removeTags = normalizeTags(tags_to_remove);
             // filter out tags that appear in both insert+remove sets to avoid redundancy
             const removeSet = new Set(removeTags);
             const finalInsertTags = insertTags.filter(tag => !removeSet.has(tag));
 
             // insert missing tags
             if (finalInsertTags.length > 0) {
-                const res = await this.insertTags(finalInsertTags, user_id, prisma);
-                console.log('inserted missing tags:', res);
+                const result = await this.insertTags(finalInsertTags, user_id, prisma);
+                debugPrintNested(result, 'Inserted Missing Tags');
             }
 
             // fetch tag_ids
@@ -82,8 +99,8 @@ export class TagService {
             
             // delete photo_tags for removed tags
             if (removeTagIds.length > 0) {
-                const res = await this.deletePhotoTags(removeTagIds, photo_id, prisma);
-                console.log('deleted photo_tags:', res);
+                const result = await this.deletePhotoTags(removeTagIds, photo_id, prisma);
+                console.log('deleted photo_tags:', result);
             }
 
             // insert photo_tags for added tags (ignore duplicates)
@@ -92,14 +109,14 @@ export class TagService {
                     tag_id,
                     photo_id
                 }));
-                const res = await this.insertPhotoTags(photoTagsToInsert, prisma);
-                console.log('inserted photo_tags:', res);
+                const result = await this.insertPhotoTags(photoTagsToInsert, prisma);
+                debugPrintNested(result, 'Inserted Photo_Tags');
             }
 
             // clean up tags that are no longer used in photo_tags
             if (removeTagIds.length > 0) {
-                const res = await this.deleteUnusedTags(removeTagIds, user_id, prisma);
-                console.log('removed unused tags:', res);
+                const result = await this.deleteUnusedTags(removeTagIds, user_id, prisma);
+                console.log('removed unused tags:', result);
             }
         } catch (err) {
             console.error('Error in TagService.updatePhotoTags:', err);
@@ -141,22 +158,11 @@ export class TagService {
         return { insertTagIds, removeTagIds };
     }
 
-    // helper for trimming whitespace/removing empty tags
-    normalizeTags(tags: string[]) {
-        const normalizedTags = new Set<string>(
-            (tags ?? [])
-                .map(tag => tag.trim().toLowerCase())
-                .filter(Boolean)
-        );
-
-        return [... normalizedTags];
-    }
-
     // normalize tags field for each photoData object
     private normalizePhotoDataTags(photoData: InsertedPhotoData[]) {
         return photoData.map(p => ({
             ...p,
-            tags: p.tags ? this.normalizeTags(p.tags) : []
+            tags: p.tags ? normalizeTags(p.tags) : []
         }));
     }
 

@@ -3,6 +3,13 @@ import { InsertedPhotoData } from "./photo.upload.js";
 import { Caption } from "@/types/models.js";
 import { Prisma } from "@/generated/prisma/client.js";
 
+// helper for removing excess whitespace from captions
+export function normalizeCaption(caption: string): string {
+    return caption
+        .trim()
+        .replace(/\s+/g, ' '); // replace multiple spaces
+}
+
 export class CaptionService {
     constructor(private prisma: PrismaClient) {}
 
@@ -18,7 +25,10 @@ export class CaptionService {
         // filter out photos without captions & empty captions
         const captionData = photoData
             .filter(photo => this.hasCaption(photo))
-            .map(({ photo_id, caption }) => ({ photo_id, caption: caption! }));
+            .map(({ photo_id, caption }) => ({
+                photo_id,
+                caption: normalizeCaption(caption!)
+            }));
         
         if (captionData.length === 0) return;
 
@@ -29,13 +39,15 @@ export class CaptionService {
     }
 
     async updateCaption(photo_id: bigint, caption: string) {
+        const finalCaption = normalizeCaption(caption);
+
         return this.prisma.captions.upsert({
             where: { photo_id },
             create: {
                 photo_id,
-                caption
+                caption: finalCaption
             },
-            update: { caption }
+            update: { caption: finalCaption }
         });
     }
 

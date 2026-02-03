@@ -4,6 +4,7 @@ import { PhotoController } from '@/controllers/photo.controller.js';
 import userContext from '@/plugins/user.context.js';
 import { TagService } from '@/services/tag.service.js';
 import { CaptionService } from '@/services/caption.service.js';
+import { CacheService } from '@/services/cache.service.js';
 
 /* define query parameters and types
 eg.
@@ -70,14 +71,12 @@ const updateCaptionSchema = {
 };
 
 export async function photoRoutes(app: FastifyInstance) {
-    const photoModel = new PhotoModel(app.prisma);
-    const tagService = new TagService(app.prisma);
-    const captionService = new CaptionService(app.prisma);
     const photoController = new PhotoController(
         app.prisma,
-        photoModel,
-        tagService,
-        captionService
+        new PhotoModel(app.prisma),
+        new TagService(app.prisma),
+        new CaptionService(app.prisma),
+        new CacheService(app.redis)
     );
 
     // protected

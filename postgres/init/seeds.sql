@@ -28,7 +28,7 @@ JOIN LATERAL generate_series(
 INSERT INTO photos (user_id, file_path)
 SELECT
     u.id AS user_id,
-    '/uploads/' || u.id || '/' || gen_random_uuid() || '.jpg'
+    '/uploads/' || gen_random_uuid() || '.jpg'
 FROM users u
 JOIN LATERAL generate_series(
     1,

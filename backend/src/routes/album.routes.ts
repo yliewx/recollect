@@ -5,6 +5,7 @@ import userContext from '@/plugins/user.context.js';
 import { PhotoModel } from '@/models/photo.model.js';
 import { TagService } from '@/services/tag.service.js';
 import { CaptionService } from '@/services/caption.service.js';
+import { CacheService } from '@/services/cache.service.js';
 
 const querySchema = {
     querystring: {
@@ -48,15 +49,12 @@ const deleteAlbumPhotosSchema = {
 };
 
 export async function albumRoutes(app: FastifyInstance) {
-    const albumModel = new AlbumModel(app.prisma);
-    const photoModel = new PhotoModel(app.prisma);
-    const tagService = new TagService(app.prisma);
-    const captionService = new CaptionService(app.prisma);
     const albumController = new AlbumController(
-        albumModel,
-        photoModel,
-        tagService,
-        captionService
+        new AlbumModel(app.prisma),
+        new PhotoModel(app.prisma),
+        new TagService(app.prisma),
+        new CaptionService(app.prisma),
+        new CacheService(app.redis)
     );
 
     // protected

@@ -90,6 +90,10 @@ export function serializeBigInt(value: any): any {
         return value.toString();
     }
 
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+
     if (Array.isArray(value)) {
         return value.map(serializeBigInt);
     }

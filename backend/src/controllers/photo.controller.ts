@@ -1,19 +1,21 @@
 import { PhotoModel } from '@/models/photo.model.js';
 import { uploadPhotos } from '@/services/photo.upload.js';
-import { TagService } from '@/services/tag.service.js';
-import { CaptionService } from '@/services/caption.service.js';
+import { TagService, normalizeTags } from '@/services/tag.service.js';
+import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { FastifyReply, FastifyRequest } from "fastify";
 import { PhotoData, InsertedPhotoData } from '@/services/photo.upload.js';
 import { PrismaClient } from '@/generated/prisma/client.js';
 import { parseBigInt } from '@/plugins/bigint.handler.js';
 import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
+import { CacheService } from '@/services/cache.service.js';
 
 export class PhotoController {
     constructor(
         private prisma: PrismaClient,
         private photoModel: PhotoModel,
         private tagService: TagService,
-        private captionService: CaptionService
+        private captionService: CaptionService,
+        private cache: CacheService
     ) {}
 
     // POST /photos
@@ -48,14 +50,18 @@ export class PhotoController {
 
                 // insert tags and photo_tags
                 const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
-                if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
+                // if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
                 
                 // insert captions
                 const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
-                if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
+                // if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
 
-                return newPhotos;
+                // return photo with structured metadata
+                return await this.photoModel.findByIds(newPhotos.map(p => p.id), user_id, tx);
             });
+
+            // store new photo data in cache
+            this.cache.cachePhotos(result);
 
             return reply.status(201).send({ photos: result });
         } catch (err) {
@@ -75,9 +81,15 @@ export class PhotoController {
             cursor_rank?: number;
             cursor_photo_id?: string;
         };
-        let tags = (tag || '').split(',').filter(Boolean);
-        tags = this.tagService.normalizeTags(tags);
-        const captions = (caption || '').trim();
+        // normalize tags and caption search
+        const tags = normalizeTags(
+            (tag ?? '').split(',').filter(Boolean)
+        );
+        const captions = normalizeCaption(caption ?? '');
+
+        // store whether tags and captions were present in query
+        const hasTagFilter = tags.length > 0;
+        const hasCaptionSearch = captions.length > 0;
 
         const cursor_id = cursor_photo_id !== undefined
             ? parseBigInt(cursor_photo_id, 'cursor_photo_id')
@@ -87,9 +99,6 @@ export class PhotoController {
         const cursor_fts = cursor_id && cursor_rank !== undefined
             ? { rank: cursor_rank, photo_id: cursor_id }
             : undefined;
-
-        const hasTagFilter = tags.length > 0;
-        const hasCaptionSearch = captions.length > 0;
 
         debugPrint({
             tags,
@@ -170,8 +179,7 @@ export class PhotoController {
             tags_to_insert?: string[];
             tags_to_remove?: string[];
         };
-        console.log('tags_to_insert:', tags_to_insert);
-        console.log('tags_to_remove:', tags_to_remove);
+        debugPrint({ tags_to_insert, tags_to_remove }, 'Update Photo Tags');
 
         try {
             const originalTags = await this.photoModel.getTagsOnPhoto(photo_id);
