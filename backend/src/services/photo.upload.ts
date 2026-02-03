@@ -71,13 +71,11 @@ async function parseMetadata(
 export async function uploadPhotos(request: FastifyRequest): Promise<PhotoData[]> {
     // handle multipart form data
     const parts = request.parts();
-    // const file_paths: string[] = [];
     const uploadFiles: UploadFile[] = [];
     let uploadMetadata: UploadMetadata[] = [];
 
     for await (const part of parts) {
         if (part.type === 'file') {
-            // validate filetype
             if (!validFileTypes.includes(part.mimetype)) {
                 throw new Error(`Unsupported file type: ${part.mimetype}`);
             }
@@ -91,15 +89,11 @@ export async function uploadPhotos(request: FastifyRequest): Promise<PhotoData[]
                 ? part.value.toString('utf-8')
                 : part.value;
 
-            // console.log();
-            // console.log('valueStr:', valueStr);
-            // console.log();
             const meta = JSON.parse(valueStr).items ?? [];
             if (meta.length > 0) {
                 uploadMetadata.push(... meta);
             }
         }
     }
-    // console.log('upload metadata:', uploadMetadata);
     return await parseMetadata(uploadFiles, uploadMetadata);
 }

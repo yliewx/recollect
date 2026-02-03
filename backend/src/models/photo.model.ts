@@ -1,5 +1,5 @@
 import { Photo, Tag, PhotoTag, Caption } from "@/types/models.js";
-import { PrismaClient } from '@/generated/prisma/client.js';
+import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
 import { paginateFindMany, buildCursorOptions } from "@/services/paginate.utils.js";
 
 export type PhotoWithMetadata = Photo & {
@@ -19,15 +19,21 @@ export class PhotoModel {
     }
 
     // bulk inserts
-    async uploadMany(user_id: bigint, file_paths: string[]): Promise<Photo[]> {
-        await this.prisma.photos.createMany({
+    async uploadMany(
+        user_id: bigint,
+        file_paths: string[],
+        tx?: Prisma.TransactionClient
+    ): Promise<Photo[]> {
+        const prisma = tx ?? this.prisma;
+    
+        await prisma.photos.createMany({
             data: file_paths.map(file_path => ({
                 user_id,
                 file_path,
             })),
         });
 
-        return await this.prisma.photos.findMany({
+        return await prisma.photos.findMany({
             where: {
                 user_id,
                 file_path: { in: file_paths },
@@ -38,15 +44,6 @@ export class PhotoModel {
     }
 
     // get all active photos from specific user
-    // async findAllFromUser(user_id: bigint): Promise<Photo[]> {
-    //     return await this.prisma.photos.findMany({
-    //         where: {
-    //             user_id,
-    //             deleted_at: null
-    //         },
-    //         orderBy: { uploaded_at: 'desc' },
-    //     });
-    // }
     async findAllFromUser(
         user_id: bigint,
         cursor?: bigint,
@@ -126,51 +123,15 @@ export class PhotoModel {
         return { photos: result, nextCursor };
     }
 
-    // helper: return photos with matching photo_ids that are owned by the user
-    async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
-        return await this.prisma.photos.findMany({
-            where: {
-                user_id,
-                id: { in: photo_ids },
-                deleted_at: null
-            },
-        });
-    }
-
     // get every existing photo from the user that matches the tags, based on match type
-    // async findByTags(
-    //     tags: string[],
-    //     match: 'any' | 'all' = 'any',
-    //     user_id: bigint
-    // ) {
-    //     if (tags.length === 0) return [];
-
-    //     return await this.prisma.photos.findMany({
-    //         where: {
-    //             user_id,
-    //             deleted_at: null,
-    //             ... this.filterByMatchType(tags, match),
-    //         },
-    //         select: {
-    //             id: true,
-    //             file_path: true,
-    //             photo_tags: {
-    //                 select: {
-    //                     tags: {
-    //                         select: { tag_name: true },
-    //                     },
-    //                 },
-    //             },
-    //         },
-    //         orderBy: { uploaded_at: 'desc' },
-    //     });
-    // }
+    // optional: filter by album_id
     async findByTags(
         tags: string[],
         match: 'any' | 'all' = 'any',
         user_id: bigint,
         cursor?: bigint,
-        take = 20
+        take = 20,
+        album_id?: bigint
     ) {
         if (tags.length === 0) return [];
 
@@ -180,7 +141,8 @@ export class PhotoModel {
             where: {
                 user_id,
                 deleted_at: null,
-                ... this.filterByMatchType(tags, match),
+                ...this.filterByMatchType(tags, match),
+                ...(album_id !== undefined ? { album_id } : {}),
             },
             include: {
                 captions: true,
@@ -244,6 +206,17 @@ export class PhotoModel {
         });
     }
 
+    // helper: return photos with matching photo_ids that are owned by the user
+    async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
+        return await this.prisma.photos.findMany({
+            where: {
+                user_id,
+                id: { in: photo_ids },
+                deleted_at: null
+            },
+        });
+    }
+    
     // get user's deleted photos
     async findDeleted(user_id: bigint): Promise<Photo[]> {
         return await this.prisma.photos.findMany({
@@ -260,7 +233,8 @@ export class PhotoModel {
         return await this.prisma.photos.update({
             where: {
                 id: photo_id,
-                user_id
+                user_id,
+                deleted_at: null
             },
             data: { deleted_at: new Date() },
         });

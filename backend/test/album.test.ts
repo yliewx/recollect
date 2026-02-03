@@ -176,6 +176,40 @@ describe('ALBUM FLOW TESTS:', () => {
         });
     });
 
+    describe('[DELETE /albums/:id/photos] -> remove photos from album', () => {
+        it('should remove multiple photos from the album', async () => {
+            const photoIdsToRemove = photos.slice(0, 5).map(photo => photo.id);
+
+            const response = await app.inject({
+                method: 'DELETE',
+                url: `/albums/${albumId}/photos`,
+                headers: {
+                    'x-user-id': user.id,
+                },
+                body: {
+                    photo_ids: photoIdsToRemove,
+                },
+            });
+
+            // expect(response.statusCode).to.equal(200);
+
+            const body = response.json();
+            console.log(body);
+            expect(body).to.have.property('count');
+            expect(body.count).to.equal(photoIdsToRemove.length);
+
+            // check the album in the db no longer contains these photos
+            const remainingPhotos = await app.prisma.album_photos.findMany({
+                where: {
+                    album_id: BigInt(albumId),
+                    photo_id: { in: photoIdsToRemove.map(BigInt) },
+                },
+            });
+
+            expect(remainingPhotos).to.have.lengthOf(0);
+        });
+    });
+
 
     describe('[DELETE /albums] -> delete album', () => {
         it('should delete an album', async () => {

@@ -75,6 +75,7 @@ function parseBigIntFields(obj: any): any {
                 if (typeof v === 'string') {
                     return parseBigInt(v, `${key}[${idx}]`);
                 }
+                return v;
             });
         }
     }

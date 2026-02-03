@@ -1,13 +1,17 @@
 import { AlbumModel } from '@/models/album.model.js';
 import { PhotoModel } from '@/models/photo.model.js';
-import { Album } from "@/types/models.js";
 import { FastifyReply, FastifyRequest } from "fastify";
 import { parseBigInt } from '@/plugins/bigint.handler.js';
+import { TagService } from '@/services/tag.service.js';
+import { CaptionService } from '@/services/caption.service.js';
+import { debugPrint } from '@/utils/debug.print.js';
 
 export class AlbumController {
     constructor(
         private albumModel: AlbumModel,
-        private photoModel: PhotoModel
+        private photoModel: PhotoModel,
+        private tagService: TagService,
+        private captionService: CaptionService
     ) {}
 
     // POST /albums
@@ -73,9 +77,9 @@ export class AlbumController {
             cursor_rank?: number;
             cursor_photo_id?: string;
         };
-        // let tags = (tag || '').split(',').filter(Boolean);
-        // tags = this.tagService.normalizeTags(tags);
-        // const captions = (caption || '').trim();
+        let tags = (tag || '').split(',').filter(Boolean);
+        tags = this.tagService.normalizeTags(tags);
+        const captions = (caption || '').trim();
 
         const cursor_id = cursor_photo_id !== undefined
             ? parseBigInt(cursor_photo_id, 'cursor_photo_id')
@@ -86,29 +90,66 @@ export class AlbumController {
             ? { rank: cursor_rank, photo_id: cursor_id }
             : undefined;
 
-        // const hasTagFilter = tags.length > 0;
-        // const hasCaptionSearch = captions.length > 0;
+        const hasTagFilter = tags.length > 0;
+        const hasCaptionSearch = captions.length > 0;
 
-        // console.log('tags:', tags);
-        // console.log('captions:', captions);
-        console.log('match:', match);
-        console.log('limit:', limit);
-        console.log('cursor_id:', cursor_id);
-        console.log('cursor_fts:', cursor_fts);
+        debugPrint({
+            tags,
+            captions,
+            match,
+            limit,
+            cursor_id,
+            cursor_fts
+        }, 'AlbumController.findAllPhotosFromAlbum');
 
         if (!album_id) {
             return reply.sendError('Album details not found in request');
         }
 
         try {
-            const result = await this.photoModel.findAllFromAlbum(
-                album_id,
-                user_id,
-                cursor_id,
-                limit
+            // 1. no filters: get all photos from album
+            if (!hasTagFilter && !hasCaptionSearch) {
+                const result = await this.photoModel.findAllFromAlbum(
+                    album_id,
+                    user_id,
+                    cursor_id,
+                    limit
+                );
+                return reply.status(200).send(result);
+            }
+            // 2. tags only
+            if (hasTagFilter && !hasCaptionSearch) {
+                const result = await this.photoModel.findByTags(
+                    tags,
+                    match,
+                    user_id,
+                    cursor_id,
+                    limit,
+                    album_id
+                );
+                return reply.status(200).send(result);
+            }
+            // 3. captions only
+            if (hasCaptionSearch && !hasTagFilter) {
+                const result = await this.captionService.searchCaptions(
+                    captions,
+                    match,
+                    user_id,
+                    cursor_fts,
+                    limit
+                );
+                // console.log('CAPTION SEARCH RESULTS:', photos);
+                return reply.status(200).send(result);
+            }
+            // 4. tags + captions
+            const photos = await this.captionService.searchCaptionsAndTags(
+                captions,
+                tags,
+                match,
+                user_id
             );
-
-            return reply.status(200).send(result);
+            // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
+            return reply.status(200).send({ photos });
         } catch (err) {
             console.error('Error in AlbumController.findAllPhotosFromAlbum:', err);
             return reply.sendError(err);
@@ -116,7 +157,7 @@ export class AlbumController {
     }
 
     // GET /albums
-    // list all albums belonging to the user
+    // list all albums belonging to the user + photo count per album
     async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
 
@@ -139,7 +180,7 @@ export class AlbumController {
         }
 
         try {
-            const response = await this.albumModel.delete(album_id, user_id);
+            const result = await this.albumModel.delete(album_id, user_id);
 
             return reply.status(200).send({ success: true });
         } catch (err) {
@@ -153,7 +194,7 @@ export class AlbumController {
         const user_id = request.user.id;
         const album_id = request.params.id;
         if (!album_id) {
-            return reply.sendError('Photo details not found in request');
+            return reply.sendError('Album details not found in request');
         }
 
         try {
@@ -163,6 +204,28 @@ export class AlbumController {
             return reply.status(200).send({ album });
         } catch (err) {
             console.error('Error in AlbumController.restore:', err);
+            return reply.sendError(err);
+        }
+    }
+
+    // DELETE /albums/:id/photos - remove photos from album
+    async deleteAlbumPhotos(
+        request: FastifyRequest<{ Params: { id: bigint }}>,
+        reply: FastifyReply
+    ) {
+        const user_id = request.user.id;
+        const album_id = request.params.id;
+        const { photo_ids } = request.body as { photo_ids: string[] };
+    
+        debugPrint({ user_id, album_id, photo_ids }, 'AlbumController.deleteAlbumPhotos');
+
+        try {
+            const photo_ids_bigint = photo_ids.map(p => parseBigInt(p, 'photo_ids'));
+            const count = await this.albumModel.deleteAlbumPhotos(album_id, photo_ids_bigint, user_id);
+
+            return reply.status(200).send(count);
+        } catch (err) {
+            console.error('Error in AlbumController.deleteAlbumPhotos:', err);
             return reply.sendError(err);
         }
     }

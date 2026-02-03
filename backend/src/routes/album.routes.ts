@@ -3,6 +3,8 @@ import { AlbumModel } from '@/models/album.model.js';
 import { AlbumController } from '@/controllers/album.controller.js';
 import userContext from '@/plugins/user.context.js';
 import { PhotoModel } from '@/models/photo.model.js';
+import { TagService } from '@/services/tag.service.js';
+import { CaptionService } from '@/services/caption.service.js';
 
 const querySchema = {
     querystring: {
@@ -27,10 +29,35 @@ const querySchema = {
     }
 };
 
+const deleteAlbumPhotosSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            photo_ids: {
+                type: 'array',
+                items: {
+                    type: 'string',
+                },
+                minItems: 1,
+                maxItems: 100,
+            },
+        },
+        required: ['photo_ids'],
+        additionalProperties: false,
+    },
+};
+
 export async function albumRoutes(app: FastifyInstance) {
     const albumModel = new AlbumModel(app.prisma);
     const photoModel = new PhotoModel(app.prisma);
-    const albumController = new AlbumController(albumModel, photoModel);
+    const tagService = new TagService(app.prisma);
+    const captionService = new CaptionService(app.prisma);
+    const albumController = new AlbumController(
+        albumModel,
+        photoModel,
+        tagService,
+        captionService
+    );
 
     // protected
     app.register(async function protectedAlbumRoutes(app) {
@@ -56,6 +83,11 @@ export async function albumRoutes(app: FastifyInstance) {
         );
 
         // remove photos from an album
+        app.delete<{ Params: { id: bigint }}>(
+            '/albums/:id/photos',
+            { schema: deleteAlbumPhotosSchema },
+            albumController.deleteAlbumPhotos.bind(albumController)
+        );
 
         // delete album
         app.delete<{ Params: { id: bigint } }>(

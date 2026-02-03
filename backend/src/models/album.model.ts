@@ -33,33 +33,63 @@ export class AlbumModel {
     }
 
     // get all active albums from specific user
-    async findAllFromUser(user_id: bigint): Promise<Album[]> {
-        return await this.prisma.albums.findMany({
+    // include photo count per album
+    async findAllFromUser(user_id: bigint) {
+        const albums = await this.prisma.albums.findMany({
             where: {
                 user_id,
                 deleted_at: null
             },
             orderBy: { created_at: 'desc' },
+            include: {
+                _count: {
+                    select: {
+                        album_photos: {
+                            where: { photos: { deleted_at: null }},
+                        },
+                    },
+                },
+            },
         });
+
+        return albums.map(({ _count, ...album }) => ({
+            ...album,
+            photo_count: _count.album_photos,
+        }));
     }
 
     // get user's deleted albums
-    async findDeleted(user_id: bigint): Promise<Album[]> {
-        return await this.prisma.albums.findMany({
+    async findDeleted(user_id: bigint) {
+        const albums = await this.prisma.albums.findMany({
             where: {
                 user_id,
                 NOT: { deleted_at: null }
             },
             orderBy: { deleted_at: 'desc' },
+            include: {
+                _count: {
+                    select: {
+                        album_photos: {
+                            where: { photos: { deleted_at: null }},
+                        },
+                    },
+                },
+            },
         });
+
+        return albums.map(({ _count, ...album }) => ({
+            ...album,
+            photo_count: _count.album_photos,
+        }));
     }
 
     // soft delete
     async delete(album_id: bigint, user_id: bigint): Promise<Album> {
-        return this.prisma.albums.update({
+        return await this.prisma.albums.update({
             where: {
                 id: album_id,
-                user_id
+                user_id,
+                deleted_at: null
             },
             data: { deleted_at: new Date() },
         });
@@ -67,13 +97,31 @@ export class AlbumModel {
 
     // restore deleted album
     async restore(album_id: bigint, user_id: bigint): Promise<Album> {
-        return this.prisma.albums.update({
+        return await this.prisma.albums.update({
             where: {
                 id: album_id,
                 user_id,
                 NOT: { deleted_at: null }
             },
             data: { deleted_at: null },
+        });
+    }
+
+    // remove photos from album: delete album_photo relationship
+    async deleteAlbumPhotos(
+        album_id: bigint,
+        photo_ids: bigint[],
+        user_id: bigint
+    ) {
+        return await this.prisma.album_photos.deleteMany({
+            where: {
+                album_id,
+                photo_id: { in: photo_ids },
+                albums: {
+                    user_id,
+                    deleted_at: null,
+                },
+            },
         });
     }
 }

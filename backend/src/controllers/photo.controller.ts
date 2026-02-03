@@ -1,12 +1,12 @@
 import { PhotoModel } from '@/models/photo.model.js';
 import { uploadPhotos } from '@/services/photo.upload.js';
 import { TagService } from '@/services/tag.service.js';
-import { Photo } from "@/types/models.js";
+import { CaptionService } from '@/services/caption.service.js';
 import { FastifyReply, FastifyRequest } from "fastify";
 import { PhotoData, InsertedPhotoData } from '@/services/photo.upload.js';
-import { CaptionService } from '@/services/caption.service.js';
 import { PrismaClient } from '@/generated/prisma/client.js';
 import { parseBigInt } from '@/plugins/bigint.handler.js';
+import { debugPrint } from '@/utils/debug.print.js';
 
 export class PhotoController {
     constructor(
@@ -21,47 +21,42 @@ export class PhotoController {
         const user_id = request.user.id;
 
         try {
-            //TODO: wrap in transaction
-            /* uploadPhotos validates & uploads images; returns an array of PhotoData objects with these fields:
-                file_path: string;
-                caption?: string;
-                tags?: string[];
-             */
+            // validate and write images to uploads directory
             const photoData: PhotoData[] = await uploadPhotos(request);
             if (photoData.length === 0) {
                 throw new Error('No images uploaded');
             }
-            
-            // bulk insert into photos table
-            const file_paths = photoData.map(photo => photo.file_path);
-            const newPhotos = await this.photoModel.uploadMany(user_id, file_paths);
-            if (newPhotos.length !== photoData.length) {
-                throw new Error('Failed to upload all images');
-            }
 
-            const filePathToPhotoId = new Map(newPhotos.map(p => [p.file_path, p.id]));
-
-            const insertedPhotoData = photoData.map(photo => {
-                const photo_id = filePathToPhotoId.get(photo.file_path);
-                if (!photo_id) {
-                    throw new Error('Photo ID missing');
+            const result = await this.prisma.$transaction(async (tx) => {
+                // bulk insert into photos table
+                const file_paths = photoData.map(photo => photo.file_path);
+                const newPhotos = await this.photoModel.uploadMany(user_id, file_paths, tx);
+                if (newPhotos.length !== photoData.length) {
+                    throw new Error('Failed to upload all images');
                 }
-                return { ... photo, photo_id}
-            })
-            console.log('insertedPhotoData:', insertedPhotoData);
 
-            // HANDLE TAG INSERTION
-            // extract all unique tag names to insert into tags table (if it doesn't exist)
-            // insert (photo_id, tag_id) into photo_tags table
-            const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id);
-            // console.log('inserted tags:', insertedTags);
+                const filePathToPhotoId = new Map(newPhotos.map(p => [p.file_path, p.id]));
 
-            // HANDLE CAPTION INSERTION
-            // insert (photo_id, caption) into captions table
-            const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData);
-            console.log('inserted captions:', insertedCaptions);
+                const insertedPhotoData = photoData.map(photo => {
+                    const photo_id = filePathToPhotoId.get(photo.file_path);
+                    if (!photo_id) {
+                        throw new Error('Photo ID missing');
+                    }
+                    return { ...photo, photo_id };
+                });
+                console.log('insertedPhotoData:', insertedPhotoData);
 
-            return reply.status(201).send({ photos: Array.from(newPhotos) });
+                // insert tags and photo_tags
+                const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
+
+                // insert captions
+                const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
+                console.log('inserted captions:', insertedCaptions);
+
+                return newPhotos;
+            });
+
+            return reply.status(201).send({ photos: result });
         } catch (err) {
             console.error('Error in PhotoController.upload:', err);
             return reply.sendError(err);
@@ -95,12 +90,14 @@ export class PhotoController {
         const hasTagFilter = tags.length > 0;
         const hasCaptionSearch = captions.length > 0;
 
-        console.log('tags:', tags);
-        console.log('captions:', captions);
-        console.log('match:', match);
-        console.log('limit:', limit);
-        console.log('cursor_id:', cursor_id);
-        console.log('cursor_fts:', cursor_fts);
+        debugPrint({
+            tags,
+            captions,
+            match,
+            limit,
+            cursor_id,
+            cursor_fts
+        }, 'PhotoController.findAllFromUser');
 
         try {
             // 1. no filters: get all photos from user
@@ -136,14 +133,16 @@ export class PhotoController {
                 return reply.status(200).send(result);
             }
             // 4. tags + captions
-            const photos = await this.captionService.searchCaptionsAndTags(
+            const result = await this.captionService.searchCaptionsAndTags(
                 captions,
                 tags,
                 match,
-                user_id
+                user_id,
+                cursor_fts,
+                limit
             );
             // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
-            return reply.status(200).send({ photos });
+            return reply.status(200).send(result);
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);
