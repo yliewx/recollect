@@ -6,7 +6,7 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { PhotoData, InsertedPhotoData } from '@/services/photo.upload.js';
 import { PrismaClient } from '@/generated/prisma/client.js';
 import { parseBigInt } from '@/plugins/bigint.handler.js';
-import { debugPrint } from '@/utils/debug.print.js';
+import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
 
 export class PhotoController {
     constructor(
@@ -44,14 +44,15 @@ export class PhotoController {
                     }
                     return { ...photo, photo_id };
                 });
-                console.log('insertedPhotoData:', insertedPhotoData);
+                debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
 
                 // insert tags and photo_tags
                 const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
-
+                if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
+                
                 // insert captions
                 const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
-                console.log('inserted captions:', insertedCaptions);
+                if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
 
                 return newPhotos;
             });

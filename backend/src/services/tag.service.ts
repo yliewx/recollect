@@ -27,7 +27,6 @@ export class TagService {
             
             // batch insert new tags
             const insertedTags = await this.insertTags(tagsToInsert, user_id, prisma);
-            // console.log('inserted tags:', insertedTags);
 
             // create map of all tags in photoData (including newly inserted)
             const allTags = new Map<string, bigint>([
@@ -39,7 +38,6 @@ export class TagService {
             const photoTags = this.pairPhotoTags(photoData, allTags);
             if (photoTags.length > 0) {
                 const insertedPhotoTags = await this.insertPhotoTags(photoTags, prisma);
-                //  console.log('inserted photo_tags:', insertedPhotoTags);
             }
 
             return insertedTags;

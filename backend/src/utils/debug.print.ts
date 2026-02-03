@@ -3,7 +3,7 @@ import chalk from 'chalk';
 
 export function debugPrint(obj: Record<string, any>, title = 'Debug Info') {
     console.log();
-    console.log(chalk.blue.bold(`--- ${chalk.cyan.bold(title)} ---`));
+    console.log(chalk.cyan.bold(`--- ${chalk.white.bold(title)} ---`));
 
     for (const [key, value] of Object.entries(obj)) {
         let displayValue: string;
@@ -13,14 +13,20 @@ export function debugPrint(obj: Record<string, any>, title = 'Debug Info') {
         } else if (Array.isArray(value)) {
             displayValue = chalk.yellow(value.length ? value.join(', ') : '(empty array)');
         } else if (typeof value === 'object') {
-            displayValue = chalk.magenta(JSON.stringify(serializeBigInt(value), null, 2));
+            displayValue = chalk.magentaBright(JSON.stringify(serializeBigInt(value), null, 2));
         } else {
-            displayValue = chalk.cyan(value.toString());
+            displayValue = chalk.cyanBright(value.toString());
         }
 
         console.log(chalk.green(`${key.padEnd(12)}:`), displayValue);
     }
 
-    console.log(chalk.blue.bold('-------------------------'));
+    console.log(chalk.cyan.bold('---------------------------------------------'));
     console.log();
+}
+
+export function debugPrintNested(array: any[], title = 'Debug Info') {
+    array.forEach((value, index) => {
+        debugPrint(value, `${title} [${index}]`);
+    });
 }
