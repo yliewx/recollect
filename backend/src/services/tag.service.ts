@@ -86,7 +86,7 @@ export class TagService {
             // insert missing tags
             if (finalInsertTags.length > 0) {
                 const result = await this.insertTags(finalInsertTags, user_id, prisma);
-                debugPrintNested(result, 'Inserted Missing Tags');
+                // debugPrintNested(result, 'Inserted Missing Tags');
             }
 
             // fetch tag_ids
@@ -110,7 +110,7 @@ export class TagService {
                     photo_id
                 }));
                 const result = await this.insertPhotoTags(photoTagsToInsert, prisma);
-                debugPrintNested(result, 'Inserted Photo_Tags');
+                // debugPrintNested(result, 'Inserted Photo_Tags');
             }
 
             // clean up tags that are no longer used in photo_tags

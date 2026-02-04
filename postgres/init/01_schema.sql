@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS albums (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
+    title VARCHAR(30) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS photos (
 CREATE TABLE IF NOT EXISTS tags (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    tag_name TEXT NOT NULL,
+    tag_name VARCHAR(30) NOT NULL,
 
     -- enforce unique tags for each user
     CONSTRAINT users_tags_name_unique UNIQUE (user_id, tag_name)
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS tags (
 -- -------------------------------------
 CREATE TABLE IF NOT EXISTS captions (
     photo_id BIGINT PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
-    caption TEXT NOT NULL,
+    caption VARCHAR(200) NOT NULL,
     caption_tsv TSVECTOR -- tokenized version of caption
         GENERATED ALWAYS AS (
             to_tsvector('english', caption)

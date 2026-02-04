@@ -12,6 +12,8 @@ export class AlbumModel {
 
     // insert photos into album (album_photos relationship)
     async addPhotos(album_id: bigint, photo_ids: bigint[]) {
+        if (photo_ids.length === 0) return { count: 0 };
+        
         return await this.prisma.album_photos.createMany({
             data: photo_ids.map(photo_id => ({
                 album_id,
@@ -127,6 +129,8 @@ export class AlbumModel {
         photo_ids: bigint[],
         user_id: bigint
     ) {
+        if (photo_ids.length === 0) return { count: 0 };
+
         return await this.prisma.album_photos.deleteMany({
             where: {
                 album_id,

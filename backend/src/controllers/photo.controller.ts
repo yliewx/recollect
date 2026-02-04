@@ -61,7 +61,7 @@ export class PhotoController {
             });
 
             // store new photo data in cache
-            this.cache.cachePhotos(result);
+            await this.cache.cachePhotos(result);
 
             return reply.status(201).send({ photos: result });
         } catch (err) {
@@ -85,6 +85,9 @@ export class PhotoController {
         const tags = normalizeTags(
             (tag ?? '').split(',').filter(Boolean)
         );
+        if (tags.length > 0 && tags.length > 10) {
+            return reply.sendError('Exceeded max number of tag filters (10)');
+        }
         const captions = normalizeCaption(caption ?? '');
 
         // store whether tags and captions were present in query
@@ -112,15 +115,35 @@ export class PhotoController {
         try {
             // 1. no filters: get all photos from user
             if (!hasTagFilter && !hasCaptionSearch) {
-                const result = await this.photoModel.findAllFromUser(
+                // get ids
+                const { photoIds, nextCursor } = await this.photoModel.findAllFromUser(
                     user_id,
                     cursor_id,
                     limit
                 );
-                return reply.status(200).send(result);
+                if (photoIds.length === 0) {
+                    return reply.status(200).send({ photoIds, nextCursor, count: 0 });
+                }
+
+                // resolve ids -> cached metadata
+                const photoMap = await this.cache.getCachedPhotos(photoIds);
+                debugPrint(photoMap, '[PHOTO] got photoMap');
+
+                // get final photos array (fetch any missing metadata + update cache as needed)
+                const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
+                
+                // return photos + next cursor to client
+                return reply.status(200).send({ photos, nextCursor });
             }
             // 2. tags only
             if (hasTagFilter && !hasCaptionSearch) {
+                // // check if search query exists in cache
+                // const photoIds = await this.cache.getCachedTagSearch(user_id, tags, cursor_id, limit);
+                // // cache hit: resolve ids -> cached metadata
+                // if (photoIds !== null) {
+
+                // }
+
                 const result = await this.photoModel.findByTags(
                     tags,
                     match,

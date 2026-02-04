@@ -42,7 +42,6 @@ describe('PHOTO FLOW TESTS:', () => {
         app = buildApp();
         await app.ready();
         userId = await createTestUser(app);
-        console.log('[photo.test] userId', userId);
     });
 
     after(async () => {
@@ -379,7 +378,6 @@ describe('PHOTO FLOW TESTS:', () => {
             expect(response.statusCode).to.equal(200);
             const body = response.json();
             expect(body).to.have.property('photo');
-            console.log('body.photo:', body.photo);
         });
     });
 });

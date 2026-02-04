@@ -19,8 +19,8 @@ const querySchema = {
     querystring: {
         type: 'object',
         properties: {
-            tag: { type: 'string' },
-            caption: { type: 'string' },
+            tag: { type: 'string' }, // validate in controller
+            caption: { type: 'string', maxLength: 50 },
             match: {
                 type: 'string',
                 enum: ['any', 'all'],
@@ -44,11 +44,13 @@ const updateTagsSchema = {
         properties: {
             tags_to_insert: {
                 type: 'array',
-                items: { type: 'string' },
+                items: { type: 'string', maxLength: 30 },
+                maxItems: 10,
             },
             tags_to_remove: {
                 type: 'array',
-                items: { type: 'string' },
+                items: { type: 'string', maxLength: 30 },
+                maxItems: 10,
             },
         },
         additionalProperties: false,
@@ -63,7 +65,7 @@ const updateCaptionSchema = {
     body: {
         type: 'object',
         properties: {
-            caption: { type: 'string' },
+            caption: { type: 'string', maxLength: 200 },
         },
         required: ['caption'],
         additionalProperties: false,

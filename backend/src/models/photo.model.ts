@@ -44,14 +44,15 @@ export class PhotoModel {
     }
     
     // get all active photos from specific user
-    // optional: filter by album_id
+    // optional: filter by album_id only if specified
+    // only return photo ids, no metadata (avoid extra joins)
     async findAllFromUser(
         user_id: bigint,
         cursor?: bigint,
         take = 20,
         album_id?: bigint
-    ): Promise<{ photos: PhotoPayload[], nextCursor: bigint | null }> {
-        const result = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
+    ): Promise<{ photoIds: bigint[], nextCursor: bigint | null }> {
+        const result = await paginateFindMany<{ id: bigint }>(this.prisma.photos, {
             ...buildCursorOptions(cursor),
             take,
             where: {
@@ -59,32 +60,59 @@ export class PhotoModel {
                 deleted_at: null,
                 ...(album_id !== undefined ? this.filterByAlbum(album_id, user_id) : {})
             },
-            include: {
-                captions: { select: { caption: true } }, // only caption text
-                photo_tags: {
-                    include: { tags: { select: { tag_name: true } } }, // only tag names
-                },
-            },
-            orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
+            select: { id: true },
+            orderBy: { id: 'desc' },
         });
 
-        const photos: PhotoPayload[] = result.map(p => ({
-            id: p.id,
-            user_id: p.user_id,
-            file_path: p.file_path,
-            uploaded_at: p.uploaded_at,
-            deleted_at: p.deleted_at,
-            caption: p.captions?.caption ?? null,
-            tags: p.photo_tags?.map(pt => pt.tags.tag_name) ?? [],
-        }));
+        const photoIds = result.map(p => p.id);
 
         // get next cursor: bookmark the last id in the result set
-        const nextCursor = (photos.length > 0)
-            ? photos[photos.length - 1].id
+        const nextCursor = (photoIds.length > 0)
+            ? photoIds[photoIds.length - 1]
             : null;
         
-        return { photos, nextCursor };
+        return { photoIds, nextCursor };
     }
+    // async findAllFromUser(
+    //     user_id: bigint,
+    //     cursor?: bigint,
+    //     take = 20,
+    //     album_id?: bigint
+    // ): Promise<{ photos: PhotoPayload[], nextCursor: bigint | null }> {
+    //     const result = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
+    //         ...buildCursorOptions(cursor),
+    //         take,
+    //         where: {
+    //             user_id,
+    //             deleted_at: null,
+    //             ...(album_id !== undefined ? this.filterByAlbum(album_id, user_id) : {})
+    //         },
+    //         include: {
+    //             captions: { select: { caption: true } }, // only caption text
+    //             photo_tags: {
+    //                 include: { tags: { select: { tag_name: true } } }, // only tag names
+    //             },
+    //         },
+    //         orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
+    //     });
+
+    //     const photos: PhotoPayload[] = result.map(p => ({
+    //         id: p.id,
+    //         user_id: p.user_id,
+    //         file_path: p.file_path,
+    //         uploaded_at: p.uploaded_at,
+    //         deleted_at: p.deleted_at,
+    //         caption: p.captions?.caption ?? null,
+    //         tags: p.photo_tags?.map(pt => pt.tags.tag_name) ?? [],
+    //     }));
+
+    //     // get next cursor: bookmark the last id in the result set
+    //     const nextCursor = (photos.length > 0)
+    //         ? photos[photos.length - 1].id
+    //         : null;
+        
+    //     return { photos, nextCursor };
+    // }
 
     // helper function for finding photos in album
     private filterByAlbum(album_id: bigint, user_id: bigint) {
@@ -128,7 +156,7 @@ export class PhotoModel {
                     include: { tags: { select: { tag_name: true } } }, // only tag names
                 },
             },
-            orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
+            orderBy: { id: 'desc' },
         });
 
         const photos: PhotoPayload[] = result.map(p => ({
@@ -198,6 +226,8 @@ export class PhotoModel {
         user_id: bigint,
         tx?: Prisma.TransactionClient
     ): Promise<PhotoPayload[]> {
+        if (photo_ids.length === 0) return [];
+        
         const prisma = tx ?? this.prisma;
 
         const result = await prisma.photos.findMany({
@@ -230,6 +260,8 @@ export class PhotoModel {
     
     // helper: return photos with matching photo_ids that are owned by the user
     async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
+        if (photo_ids.length === 0) return [];
+        
         return await this.prisma.photos.findMany({
             where: {
                 user_id,

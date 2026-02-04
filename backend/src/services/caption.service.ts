@@ -67,8 +67,6 @@ export class CaptionService {
             ? query // 'abc xyz' -> match abc AND xyz
             : query.split(/\s+/).join(' OR '); // -> match abc OR xyz
 
-        // console.log('[searchCaptions] queryString:', queryString);
-
         const whereCursorCondition = cursor
             ? Prisma.sql`
                 WHERE

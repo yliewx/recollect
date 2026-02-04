@@ -39,6 +39,7 @@ const deleteAlbumPhotosSchema = {
                 items: {
                     type: 'string',
                     minLength: 1,
+                    maxLength: 20,
                 },
                 minItems: 1,
                 maxItems: 100,
@@ -56,6 +57,7 @@ const renameAlbumSchema = {
             title: {
                 type: 'string',
                 minLength: 1,
+                maxLength: 30,
             },
         },
         required: ['title'],

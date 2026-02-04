@@ -96,9 +96,6 @@ describe('ALBUM FLOW TESTS:', () => {
                 select: { updated_at: true },
             });
 
-            console.log('before:', albumBefore.updated_at);
-            console.log('after:', albumAfter.updated_at);
-
             expect(new Date(albumAfter.updated_at).getTime())
                 .to.be.greaterThan(new Date(albumBefore.updated_at).getTime());
         });
@@ -220,7 +217,6 @@ describe('ALBUM FLOW TESTS:', () => {
             expect(response.statusCode).to.equal(200);
 
             const body = response.json();
-            console.log(body);
             expect(body).to.have.property('count');
             expect(body.count).to.equal(photoIdsToRemove.length);
 
@@ -239,9 +235,6 @@ describe('ALBUM FLOW TESTS:', () => {
                 where: { id: albumId },
                 select: { updated_at: true },
             });
-
-            console.log('before:', albumBefore.updated_at);
-            console.log('after:', albumAfter.updated_at);
 
             expect(new Date(albumAfter.updated_at).getTime())
                 .to.be.greaterThan(new Date(albumBefore.updated_at).getTime());
@@ -344,7 +337,6 @@ describe('ALBUM FLOW TESTS:', () => {
 
             expect(response.statusCode).to.equal(400);
             const body = response.json();
-            console.log('body:', body);
             expect(body).to.have.property('message');
             expect(body.message).to.match(/title/);
         });
