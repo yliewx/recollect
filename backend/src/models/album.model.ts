@@ -23,15 +23,17 @@ export class AlbumModel {
 
     // find album by album id and user id
     async findById(album_id: bigint, user_id: bigint): Promise<Album | null> {
-        return await this.prisma.albums.findFirst({
-            where: {
-                id: album_id,
-                user_id,
-                deleted_at: null
-            },
-        })
-    }
+        const album = await this.prisma.albums.findUnique({
+            where: { id: album_id }
+        });
 
+        if (!album || album.user_id !== user_id || album.deleted_at !== null) {
+            return null;
+        }
+
+        return album;
+    }
+    
     // get all active albums from specific user
     // include photo count per album
     async findAllFromUser(user_id: bigint) {
@@ -40,7 +42,7 @@ export class AlbumModel {
                 user_id,
                 deleted_at: null
             },
-            orderBy: { created_at: 'desc' },
+            orderBy: { updated_at: 'desc' },
             include: {
                 _count: {
                     select: {
@@ -83,27 +85,39 @@ export class AlbumModel {
         }));
     }
 
-    // soft delete
+    // soft delete: find existing album and set deleted_at timestamp
     async delete(album_id: bigint, user_id: bigint): Promise<Album> {
-        return await this.prisma.albums.update({
-            where: {
-                id: album_id,
-                user_id,
-                deleted_at: null
-            },
-            data: { deleted_at: new Date() },
+        return await this.prisma.$transaction(async (tx) => {
+            const album = await tx.albums.findUnique({
+                where: { id: album_id },
+            });
+
+            if (!album || album.user_id !== user_id || album.deleted_at !== null) {
+                throw new Error('Album not found or access denied');
+            }
+
+            return await tx.albums.update({
+                where: { id: album_id },
+                data: { deleted_at: new Date() },
+            });
         });
     }
 
-    // restore deleted album
+    // restore deleted album: set deleted_at to null
     async restore(album_id: bigint, user_id: bigint): Promise<Album> {
-        return await this.prisma.albums.update({
-            where: {
-                id: album_id,
-                user_id,
-                NOT: { deleted_at: null }
-            },
-            data: { deleted_at: null },
+        return await this.prisma.$transaction(async (tx) => {
+            const album = await tx.albums.findUnique({
+                where: { id: album_id },
+            });
+
+            if (!album || album.user_id !== user_id || album.deleted_at === null) {
+                throw new Error('Album not found or access denied');
+            }
+
+            return await tx.albums.update({
+                where: { id: album_id },
+                data: { deleted_at: null },
+            });
         });
     }
 
@@ -122,6 +136,24 @@ export class AlbumModel {
                     deleted_at: null,
                 },
             },
+        });
+    }
+
+    // find existing album and update title
+    async renameAlbum(newTitle: string, album_id: bigint, user_id: bigint) {
+        return await this.prisma.$transaction(async (tx) => {
+            const album = await tx.albums.findUnique({
+                where: { id: album_id },
+            });
+
+            if (!album || album.user_id !== user_id || album.deleted_at !== null) {
+                throw new Error('Album not found or access denied');
+            }
+
+            return await tx.albums.update({
+                where: { id: album_id },
+                data: { title: newTitle },
+            });
         });
     }
 }

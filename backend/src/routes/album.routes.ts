@@ -38,12 +38,27 @@ const deleteAlbumPhotosSchema = {
                 type: 'array',
                 items: {
                     type: 'string',
+                    minLength: 1,
                 },
                 minItems: 1,
                 maxItems: 100,
             },
         },
         required: ['photo_ids'],
+        additionalProperties: false,
+    },
+};
+
+const renameAlbumSchema = {
+    body: {
+        type: 'object',
+        properties: {
+            title: {
+                type: 'string',
+                minLength: 1,
+            },
+        },
+        required: ['title'],
         additionalProperties: false,
     },
 };
@@ -97,6 +112,13 @@ export async function albumRoutes(app: FastifyInstance) {
         app.patch<{ Params: { id: bigint } }>(
             '/albums/:id/restore',
             albumController.restore.bind(albumController)
+        );
+
+        // change album title
+        app.patch<{ Params: { id: bigint } }>(
+            '/albums/:id/title',
+            { schema: renameAlbumSchema },
+            albumController.renameAlbum.bind(albumController)
         );
     });
 }

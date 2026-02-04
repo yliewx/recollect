@@ -44,7 +44,11 @@ services:
     container_name: redis
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 200mb
+      --maxmemory-policy allkeys-lru
     networks:
       - recollect
     volumes:

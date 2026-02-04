@@ -174,13 +174,13 @@ export class CacheService {
     // }
 
     /*async deletePhoto(photo_id: bigint, user_id: bigint) {
-    await this.redis.del(this.buildPhotoKey(photo_id));
-    await this.redis.srem(
-        this.buildUserPhotosKey(user_id),
-        photo_id.toString()
-    );
-}
- */
+        await this.redis.del(this.buildPhotoKey(photo_id));
+        await this.redis.srem(
+            this.buildUserPhotosKey(user_id),
+            photo_id.toString()
+        );
+    }
+    */
 
     // get from cache
     async get<T>(key: string): Promise<T | null> {

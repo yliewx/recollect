@@ -59,8 +59,8 @@ export class AlbumController {
             }
 
             // add photos to album
-            const { count } = await this.albumModel.addPhotos(album_id, photo_ids);
-            return reply.status(200).send({ total_added: count });
+            const count = await this.albumModel.addPhotos(album_id, photo_ids);
+            return reply.status(200).send(count);
         } catch (err) {
             console.error('Error in AlbumController.addPhotos:', err);
             return reply.sendError(err);
@@ -180,6 +180,28 @@ export class AlbumController {
         }
     }
 
+    // DELETE /albums/:id/photos - remove photos from album
+    async deleteAlbumPhotos(
+        request: FastifyRequest<{ Params: { id: bigint }}>,
+        reply: FastifyReply
+    ) {
+        const user_id = request.user.id;
+        const album_id = request.params.id;
+        const { photo_ids } = request.body as { photo_ids: string[] };
+    
+        debugPrint({ user_id, album_id, photo_ids }, 'AlbumController.deleteAlbumPhotos');
+
+        try {
+            const photo_ids_bigint = photo_ids.map(p => parseBigInt(p, 'photo_ids'));
+            const count = await this.albumModel.deleteAlbumPhotos(album_id, photo_ids_bigint, user_id);
+
+            return reply.status(200).send(count);
+        } catch (err) {
+            console.error('Error in AlbumController.deleteAlbumPhotos:', err);
+            return reply.sendError(err);
+        }
+    }
+
     // DELETE /albums/:id
     async delete(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
         const user_id = request.user.id;
@@ -216,24 +238,23 @@ export class AlbumController {
         }
     }
 
-    // DELETE /albums/:id/photos - remove photos from album
-    async deleteAlbumPhotos(
+    // PATCH /albums/:id/title
+    async renameAlbum(
         request: FastifyRequest<{ Params: { id: bigint }}>,
         reply: FastifyReply
     ) {
         const user_id = request.user.id;
         const album_id = request.params.id;
-        const { photo_ids } = request.body as { photo_ids: string[] };
+        const { title } = request.body as { title: string };
     
-        debugPrint({ user_id, album_id, photo_ids }, 'AlbumController.deleteAlbumPhotos');
+        debugPrint({ user_id, album_id, title }, 'AlbumController.renameAlbum');
 
         try {
-            const photo_ids_bigint = photo_ids.map(p => parseBigInt(p, 'photo_ids'));
-            const count = await this.albumModel.deleteAlbumPhotos(album_id, photo_ids_bigint, user_id);
+            const album = await this.albumModel.renameAlbum(title, album_id, user_id);
 
-            return reply.status(200).send(count);
+            return reply.status(200).send({ album });
         } catch (err) {
-            console.error('Error in AlbumController.deleteAlbumPhotos:', err);
+            console.error('Error in AlbumController.renameAlbum:', err);
             return reply.sendError(err);
         }
     }

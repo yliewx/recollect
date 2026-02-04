@@ -69,7 +69,12 @@ describe('ALBUM FLOW TESTS:', () => {
 
     describe('[POST /albums/:id/photos] -> add photos to album', () => {
         it('should add 100 photos', async () => {
-           const response = await app.inject({
+            const albumBefore = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { updated_at: true },
+            });
+
+            const response = await app.inject({
                 method: 'POST',
                 url: `/albums/${albumId}/photos`,
                 headers: {
@@ -83,8 +88,19 @@ describe('ALBUM FLOW TESTS:', () => {
             expect(response.statusCode).to.equal(200);
 
             const body = response.json();
-            expect(body).to.have.property('total_added');
-            expect(body.total_added).to.equal(100);
+            expect(body).to.have.property('count');
+            expect(body.count).to.equal(photos.length);
+
+            const albumAfter = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { updated_at: true },
+            });
+
+            console.log('before:', albumBefore.updated_at);
+            console.log('after:', albumAfter.updated_at);
+
+            expect(new Date(albumAfter.updated_at).getTime())
+                .to.be.greaterThan(new Date(albumBefore.updated_at).getTime());
         });
     });
 
@@ -182,6 +198,12 @@ describe('ALBUM FLOW TESTS:', () => {
 
     describe('[DELETE /albums/:id/photos] -> remove photos from album', () => {
         it('should remove multiple photos from the album', async () => {
+            // store previous album.updated_at for comparison
+            const albumBefore = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { updated_at: true },
+            });
+
             const photoIdsToRemove = photos.slice(0, 5).map(photo => photo.id);
 
             const response = await app.inject({
@@ -195,7 +217,7 @@ describe('ALBUM FLOW TESTS:', () => {
                 },
             });
 
-            // expect(response.statusCode).to.equal(200);
+            expect(response.statusCode).to.equal(200);
 
             const body = response.json();
             console.log(body);
@@ -211,6 +233,18 @@ describe('ALBUM FLOW TESTS:', () => {
             });
 
             expect(remainingPhotos).to.have.lengthOf(0);
+
+            // check whether album.updated_at has changed
+            const albumAfter = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { updated_at: true },
+            });
+
+            console.log('before:', albumBefore.updated_at);
+            console.log('after:', albumAfter.updated_at);
+
+            expect(new Date(albumAfter.updated_at).getTime())
+                .to.be.greaterThan(new Date(albumBefore.updated_at).getTime());
         });
     });
 
@@ -241,6 +275,78 @@ describe('ALBUM FLOW TESTS:', () => {
             const body = response.json();
             expect(body).to.have.property('album');
             debugPrint(body.album, 'Restored Deleted Photo');
+        });
+    });
+
+    describe('[PATCH /albums/:id/title] -> rename album', () => {
+        it('should rename the album successfully', async () => {
+            // get the album before renaming
+            const albumBefore = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { title: true, updated_at: true, user_id: true },
+            });
+
+            const newTitle = 'Renamed Album Title';
+
+            const response = await app.inject({
+                method: 'PATCH',
+                url: `/albums/${albumId}/title`,
+                headers: {
+                    'x-user-id': user.id,
+                },
+                body: {
+                    title: newTitle,
+                },
+            });
+
+            expect(response.statusCode).to.equal(200);
+
+            const body = response.json();
+            expect(body).to.have.property('album');
+            expect(body.album).to.have.property('title');
+            expect(body.album.title).to.equal(newTitle);
+
+            // verify database was updated
+            const albumAfter = await app.prisma.albums.findUnique({
+                where: { id: albumId },
+                select: { title: true, updated_at: true },
+            });
+
+            expect(albumAfter.title).to.equal(newTitle);
+            expect(new Date(albumAfter.updated_at).getTime())
+                .to.be.greaterThan(new Date(albumBefore.updated_at).getTime());
+        });
+
+        it('should fail if album does not exist or belongs to another user', async () => {
+            const fakeAlbumId = 999999n;
+
+            const response = await app.inject({
+                method: 'PATCH',
+                url: `/albums/${fakeAlbumId}/title`,
+                headers: {
+                    'x-user-id': user.id,
+                },
+                body: { title: 'Should Fail' },
+            });
+
+            expect(response.statusCode).to.equal(400);
+            const body = response.json();
+            expect(body).to.have.property('error');
+        });
+
+        it('should fail if title is missing or invalid', async () => {
+            const response = await app.inject({
+                method: 'PATCH',
+                url: `/albums/${albumId}/title`,
+                headers: { 'x-user-id': user.id },
+                body: {}, // missing title
+            });
+
+            expect(response.statusCode).to.equal(400);
+            const body = response.json();
+            console.log('body:', body);
+            expect(body).to.have.property('message');
+            expect(body.message).to.match(/title/);
         });
     });
 })

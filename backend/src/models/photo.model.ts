@@ -250,27 +250,39 @@ export class PhotoModel {
         });
     }
 
-    // soft delete
+    // soft delete: find existing photo and set deleted_at timestamp
     async delete(photo_id: bigint, user_id: bigint): Promise<Photo> {
-        return await this.prisma.photos.update({
-            where: {
-                id: photo_id,
-                user_id,
-                deleted_at: null
-            },
-            data: { deleted_at: new Date() },
+        return await this.prisma.$transaction(async (tx) => {
+            const photo = await tx.photos.findUnique({
+                where: { id: photo_id },
+            });
+
+            if (!photo || photo.user_id !== user_id || photo.deleted_at !== null) {
+                throw new Error('Photo not found or access denied');
+            }
+
+            return await tx.photos.update({
+                where: { id: photo_id },
+                data: { deleted_at: new Date() },
+            });
         });
     }
 
-    // restore deleted photo
+    // restore deleted photo: set deleted_at to null
     async restore(photo_id: bigint, user_id: bigint): Promise<Photo> {
-        return await this.prisma.photos.update({
-            where: {
-                id: photo_id,
-                user_id,
-                NOT: { deleted_at: null }
-            },
-            data: { deleted_at: null },
+        return await this.prisma.$transaction(async (tx) => {
+            const photo = await tx.photos.findUnique({
+                where: { id: photo_id }
+            });
+
+            if (!photo || photo.user_id !== user_id || photo.deleted_at === null) {
+                throw new Error('Photo not found or access denied');
+            }
+
+            return await tx.photos.update({
+                where: { id: photo_id },
+                data: { deleted_at: null },
+            });
         });
     }
 }
