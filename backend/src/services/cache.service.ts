@@ -357,7 +357,7 @@ export class CacheService {
             // get next <limit> items after the cursor
             const results = await this.redis.zrangebyscore(
                 key,
-                -score + 1e-12,
+                score + 1e-12,
                 // `(${cursorScore}`, // strictly greater than cursorScore
                 '+inf',
                 'LIMIT', 0, limit

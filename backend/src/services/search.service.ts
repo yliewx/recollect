@@ -4,6 +4,7 @@ import { CaptionService } from './caption.service.js';
 import { CacheService } from './cache.service.js';
 import { PhotoModel, PhotoPayload } from '@/models/photo.model.js';
 import { SearchQuery, SearchResult } from '@/types/search.js';
+import { debugPrintNested } from '@/utils/debug.print.js';
 
 export class SearchService {
     constructor(
@@ -139,8 +140,11 @@ export class SearchService {
             limit,
             album_id
         );
-        await this.cache.cacheTagSearch(user_id, tags, match, photos.map(p => p.id), nextCursor === null);
-        await this.cache.cachePhotos(photos);
+    
+        if (photos.length > 0) {
+            await this.cache.cacheTagSearch(user_id, tags, match, photos.map(p => p.id), nextCursor === null);
+            await this.cache.cachePhotos(photos);
+        }
 
         return { photos, nextCursor };
     }
@@ -171,11 +175,16 @@ export class SearchService {
             ? await this.captionService.searchCaptionsAndTags(caption, tags, match, user_id, cursor, limit)
             : await this.captionService.searchCaptions(caption, match, user_id, cursor, limit);
 
+        console.log('rows:', rows);
+        console.log('nextCursor:', nextCursor);
         const ids = rows.map((r) => r.photo_id);
         const photoPayload = await this.resolveIdsToPhotos(user_id, ids);
 
-        await this.cache.cachePhotos(photoPayload);
-        await this.cache.cacheCaptionSearch(user_id, tags, caption, match, rows, nextCursor === null);
+        debugPrintNested(photoPayload, 'caption');
+        if (photoPayload.length > 0) {
+            await this.cache.cachePhotos(photoPayload);
+            await this.cache.cacheCaptionSearch(user_id, tags, caption, match, rows, nextCursor === null);
+        }
 
         return { photos: photoPayload, nextCursor };
     }
