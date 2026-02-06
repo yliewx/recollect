@@ -10,23 +10,13 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 export default fp(async function setBigIntHandler(app: FastifyInstance) {
     // before sending response: automatically convert bigint to string
     app.addHook('preSerialization', async (request: FastifyRequest, reply: FastifyReply, payload: any) => {
-        // console.log();
-        // console.log('PRESERIALIZATION HOOK:');
-        // console.log('payload:', payload);
-        // console.log();
         return serializeBigInt(payload);
     });
 
     // before processing request: automatically convert ID fields in request.body and params
     app.addHook('preValidation', async (request: FastifyRequest, reply: FastifyReply) => {
         try {
-            // console.log();
-            // console.log('PREVALIDATION HOOK:');
-            // console.log('request.body:', request.body);
             request.body = parseBigIntFields(request.body);
-            // console.log('request.params:', request.params);
-            request.params = parseBigIntFields(request.params);
-            // console.log();
         } catch (err) {
             reply.sendError(err);
         }

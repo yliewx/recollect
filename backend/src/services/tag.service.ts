@@ -1,7 +1,7 @@
 import { InsertedPhotoData } from './photo.upload.js'
 import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
 import { PhotoTag } from '@/types/models.js';
-import { debugPrintNested } from '@/utils/debug.print.js';
+import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
 
 // helper for removing excess whitespace and removing empty tags
 export function normalizeTags(tags: string[]) {
@@ -75,6 +75,7 @@ export class TagService {
         tx?: Prisma.TransactionClient
     ) {
         const prisma = tx ?? this.prisma;
+        let isChanged: boolean = false;
 
         try {
             const insertTags = normalizeTags(tags_to_insert);
@@ -86,7 +87,8 @@ export class TagService {
             // insert missing tags
             if (finalInsertTags.length > 0) {
                 const result = await this.insertTags(finalInsertTags, user_id, prisma);
-                // debugPrintNested(result, 'Inserted Missing Tags');
+                debugPrint(result, 'Inserted Missing Tags');
+                isChanged = true;
             }
 
             // fetch tag_ids
@@ -101,6 +103,7 @@ export class TagService {
             if (removeTagIds.length > 0) {
                 const result = await this.deletePhotoTags(removeTagIds, photo_id, prisma);
                 console.log('deleted photo_tags:', result);
+                isChanged = true;
             }
 
             // insert photo_tags for added tags (ignore duplicates)
@@ -110,7 +113,8 @@ export class TagService {
                     photo_id
                 }));
                 const result = await this.insertPhotoTags(photoTagsToInsert, prisma);
-                // debugPrintNested(result, 'Inserted Photo_Tags');
+                debugPrint(result, 'Inserted Photo_Tags');
+                isChanged = true;
             }
 
             // clean up tags that are no longer used in photo_tags
@@ -122,6 +126,7 @@ export class TagService {
             console.error('Error in TagService.updatePhotoTags:', err);
             throw new Error('Failed to update photo tags');
         }
+        return isChanged;
     }
 
     async getTagIdsFromNames(

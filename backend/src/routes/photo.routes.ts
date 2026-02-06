@@ -7,6 +7,7 @@ import { CaptionService } from '@/services/caption.service.js';
 import { CacheService } from '@/services/cache.service.js';
 import { SearchService } from '@/services/search.service.js';
 import { Services } from '@/types/search.js';
+import { deletePhotoSchema, querySchema, updateCaptionSchema, updateTagsSchema, uploadPhotoSchema } from './schemas/photo.schema.js';
 
 /* define query parameters and types
 eg.
@@ -17,62 +18,6 @@ eg.
     /photos?tag=x,y&match=any -> (default) find photos tagged with x OR y
     /photos?tag=x,y&match=all -> find photos tagged with x AND y
  */
-const querySchema = {
-    querystring: {
-        type: 'object',
-        properties: {
-            tag: { type: 'string' }, // validate in controller
-            caption: { type: 'string', maxLength: 50 },
-            match: {
-                type: 'string',
-                enum: ['any', 'all'],
-                default: 'any',
-            },
-            limit: {
-                type: 'integer',
-                minimum: 1,
-                maximum: 50,
-                default: 20,
-            },
-            cursor_rank: { type: 'number' }, // only applicable for caption FTS
-            cursor_id: { type: 'string' },
-        },
-    }
-};
-
-const updateTagsSchema = {
-    body: {
-        type: 'object',
-        properties: {
-            tags_to_insert: {
-                type: 'array',
-                items: { type: 'string', maxLength: 30 },
-                maxItems: 10,
-            },
-            tags_to_remove: {
-                type: 'array',
-                items: { type: 'string', maxLength: 30 },
-                maxItems: 10,
-            },
-        },
-        additionalProperties: false,
-        anyOf: [
-            { required: ['tags_to_insert'] },
-            { required: ['tags_to_remove'] },
-        ],
-    }
-};
-
-const updateCaptionSchema = {
-    body: {
-        type: 'object',
-        properties: {
-            caption: { type: 'string', maxLength: 200 },
-        },
-        required: ['caption'],
-        additionalProperties: false,
-    }
-};
 
 export async function photoRoutes(app: FastifyInstance, services: Services) {
     const {
@@ -102,30 +47,37 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
         );
 
         // upload photos
-        app.post('/photos', photoController.upload.bind(photoController));
+        app.post('/photos',
+            {
+                validatorCompiler: () => { return data => data; },
+                schema: uploadPhotoSchema
+            },
+            photoController.upload.bind(photoController)
+        );
 
         // update photo tags
-        app.patch<{ Params: { id: bigint } }>(
+        app.patch<{ Params: { id: string } }>(
             '/photos/:id/tags',
             { schema: updateTagsSchema },
             photoController.updatePhotoTags.bind(photoController)
         );
 
         // update photo caption
-        app.patch<{ Params: { id: bigint } }>(
+        app.patch<{ Params: { id: string } }>(
             '/photos/:id/caption',
             { schema: updateCaptionSchema },
             photoController.updateCaption.bind(photoController)
         );
 
         // delete photo
-        app.delete<{ Params: { id: bigint } }>(
+        app.delete<{ Params: { id: string } }>(
             '/photos/:id',
+            { schema: deletePhotoSchema },
             photoController.delete.bind(photoController)
         );
 
         // restore deleted photo
-        app.patch<{ Params: { id: bigint } }>(
+        app.patch<{ Params: { id: string } }>(
             '/photos/:id/restore',
             photoController.restore.bind(photoController)
         );

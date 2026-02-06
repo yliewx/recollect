@@ -89,18 +89,6 @@ describe('PHOTO FLOW TESTS:', () => {
             }
             console.log(`uploaded ${photoIds.length} photos`);
             expect(photoIds).to.have.length(100);
-            // const form = await createPhotoForm(filePaths, metadata);
-
-            // const response = await app.inject({
-            //     method: 'POST',
-            //     url: '/photos',
-            //     headers: { 'x-user-id': userId, ...form.getHeaders() },
-            //     payload: form,
-            // });
-            
-            // assertPhotoUpload(response, uploadsDir, photoIds);
-            // const body = response.json();
-            // debugPrintNested(body.photos, 'Checking Photo Payload');
         });
     });
 
@@ -218,14 +206,6 @@ describe('PHOTO FLOW TESTS:', () => {
 
     describe('[GET /photos] -> search by tags only', () => {
         it(`should get ${totalCount} photos tagged with "common", split into 5 pages`, async () => {
-            // const response = await getPhotos(app, userId, { tag: ['common'] });
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body.photos.length).to.equal(totalCount);
-
-            // const res = await app.prisma.photos
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 20,
                 totalCount,
@@ -236,12 +216,6 @@ describe('PHOTO FLOW TESTS:', () => {
         });
 
         it('should get 60 photos tagged with "tag_1", "tag_0" or "tag_4"', async () => {
-            // const response = await getPhotos(app, userId, { tag: ['tag_1', 'tag_0', 'tag_4'], match: ['any'] });
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body.photos.length).to.equal(60);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 20,
                 totalCount: 60,
@@ -252,12 +226,6 @@ describe('PHOTO FLOW TESTS:', () => {
         });
 
         it('should get 20 photos tagged with "common" AND "tag_0"', async () => {
-            // const response = await getPhotos(app, userId, { tag: ['common', 'tag_0'], match: ['all'] });
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body.photos.length).to.equal(20);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 5,
                 totalCount: 20,
@@ -268,12 +236,6 @@ describe('PHOTO FLOW TESTS:', () => {
         });
 
         it('should hit the cache for "common" AND "tag_0"', async () => {
-            // const response = await getPhotos(app, userId, { tag: ['tag_0', 'common'], match: ['all'] });
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body.photos.length).to.equal(20);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 20,
                 totalCount: 20,
@@ -286,17 +248,6 @@ describe('PHOTO FLOW TESTS:', () => {
 
     describe('[GET /photos] -> search by caption only', () => {
         it('should get 40 photos by caption (strict match)', async () => {
-            // const response = await getPhotos(app, userId, {
-            //     caption: ['sunset beach cat'],
-            //     match: ['all'], // strict match
-            // });
-
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body).to.have.property('photos');
-            // expect(Array.isArray(body.photos)).to.be.true;
-            // expect(body.photos.length).to.equal(40);
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 20,
                 totalCount: 40,
@@ -310,17 +261,6 @@ describe('PHOTO FLOW TESTS:', () => {
         });
 
         it('should get 80 photos by caption (non-strict match)', async () => {
-            // const response = await getPhotos(app, userId, {
-            //     caption: ['sunset beach cat'], // default non-strict
-            // });
-
-            // expect(response.statusCode).to.equal(200);
-
-            // const body = response.json();
-            // expect(body).to.have.property('photos');
-            // expect(Array.isArray(body.photos)).to.be.true;
-            // expect(body.photos.length).to.equal(80);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 20,
                 totalCount: 80,
@@ -335,28 +275,6 @@ describe('PHOTO FLOW TESTS:', () => {
     
     describe('[GET /photos] -> search by caption and tags', () => {
         it('should get 20 photos by caption AND tags (strict match)', async () => {
-            // const queryParams = {
-            //     caption: ['sunset beach cat'],
-            //     tag: ['tag_1'],
-            //     match: ['all']
-            // };
-            // const queryString = new URLSearchParams(queryParams).toString();
-            // console.log('queryString:', queryString);
-            // const response = await app.inject({
-            //     method: 'GET',
-            //     url: `/photos?${queryString}`,
-            //     headers: {
-            //         'x-user-id': userId,
-            //     },
-            // });
-
-            // expect(response.statusCode).to.equal(200);
-            
-            // const body = response.json();
-            // expect(body).to.have.property('photos');
-            // expect(Array.isArray(body.photos)).to.equal(true);
-            // expect(body.photos.length).to.equal(20);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 7,
                 totalCount: 20,
@@ -371,27 +289,6 @@ describe('PHOTO FLOW TESTS:', () => {
         });
 
         it('should get 100 photos by caption OR tags (non-strict match)', async () => {
-            // const queryParams = {
-            //     caption: ['sunset beach cat'],
-            //     tag: ['tag_1', 'tag_3', 'tag_4']
-            // };
-            // const queryString = new URLSearchParams(queryParams).toString();
-            // console.log('queryString:', queryString);
-            // const response = await app.inject({
-            //     method: 'GET',
-            //     url: `/photos?${queryString}`,
-            //     headers: {
-            //         'x-user-id': userId,
-            //     },
-            // });
-
-            // expect(response.statusCode).to.equal(200);
-            
-            // const body = response.json();
-            // expect(body).to.have.property('photos');
-            // expect(Array.isArray(body.photos)).to.equal(true);
-            // expect(body.photos.length).to.equal(100);
-
             const { pages } = await fetchAllPhotosWithCursor(app, userId, {
                 limit: 50,
                 totalCount: 100,

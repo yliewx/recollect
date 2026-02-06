@@ -94,39 +94,39 @@ export async function albumRoutes(app: FastifyInstance, services: Services) {
         app.post('/albums', albumController.create.bind(albumController));
 
         // get all photos in an album
-        app.get<{ Params: { id: bigint } }>(
+        app.get<{ Params: { id: string } }>(
             '/albums/:id/photos',
             { schema: querySchema },
             albumController.findAllPhotosFromAlbum.bind(albumController)
         );
         
         // add photos to an album
-        app.post<{ Params: { id: bigint } }>(
+        app.post<{ Params: { id: string } }>(
             '/albums/:id/photos',
             albumController.addPhotos.bind(albumController)
         );
 
         // remove photos from an album
-        app.delete<{ Params: { id: bigint }}>(
+        app.delete<{ Params: { id: string } }>(
             '/albums/:id/photos',
             { schema: deleteAlbumPhotosSchema },
             albumController.deleteAlbumPhotos.bind(albumController)
         );
 
         // delete album
-        app.delete<{ Params: { id: bigint } }>(
+        app.delete<{ Params: { id: string } }>(
             '/albums/:id',
             albumController.delete.bind(albumController)
         );
 
         // restore deleted album
-        app.patch<{ Params: { id: bigint } }>(
+        app.patch<{ Params: { id: string } }>(
             '/albums/:id/restore',
             albumController.restore.bind(albumController)
         );
 
         // change album title
-        app.patch<{ Params: { id: bigint } }>(
+        app.patch<{ Params: { id: string } }>(
             '/albums/:id/title',
             { schema: renameAlbumSchema },
             albumController.renameAlbum.bind(albumController)

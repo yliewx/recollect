@@ -30,6 +30,14 @@ services:
       - "5433:5432"
     env_file:
       - .env
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=all"
+      - "-c"
+      - "pg_stat_statements.max=10000"
     networks:
       - recollect
     volumes:

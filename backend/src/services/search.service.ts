@@ -12,10 +12,9 @@ export class SearchService {
         private readonly cache: CacheService
     ) {}
 
-    /**
-     * Parse + normalize query params into a stable SearchQuery object.
-     * This is reusable across controllers.
-     */
+    /**============================================
+     *           NORMALIZE QUERY PARAMS
+     *=============================================**/
     buildSearchQuery(
         tags: string[],
         caption: string,
@@ -46,6 +45,11 @@ export class SearchService {
         }
     }
 
+    /**========================================================================
+     *                           SEARCH FUNCTIONS
+     *========================================================================**/
+
+    // called from photo controller
     async searchPhotos(user_id: bigint, q: SearchQuery): Promise<SearchResult<any>> {
         this.validateQuery(q);
 
@@ -63,12 +67,8 @@ export class SearchService {
         return this.searchByCaptionAndTags(user_id, q.caption, q.tags, q.match, q.limit, q.cursor);
     }
 
-    // -------------------------
-    // Internal implementations
-    // -------------------------
-
     // get cached metadata from ids, fetch missing metadata + hydrate cache
-    private async resolveIdsToPhotos(user_id: bigint, photoIds: bigint[]): Promise<PhotoPayload[]> {
+    async resolveIdsToPhotos(user_id: bigint, photoIds: bigint[]): Promise<PhotoPayload[]> {
         const photoMap = await this.cache.getCachedPhotos(photoIds);
         const result = await this.cache.fetchAndMergePhotos(
             photoMap,
@@ -78,7 +78,9 @@ export class SearchService {
         return result;
     }
 
-    // SEARCH PHOTOS: NO FILTER
+    /**============================================
+     *          SEARCH PHOTOS: NO FILTER
+     *=============================================**/
     private async searchAllPhotos(
         user_id: bigint,
         limit: number,
@@ -100,7 +102,9 @@ export class SearchService {
         return { photos, nextCursor };
     }
 
-    // SEARCH BY TAGS ONLY: NO CAPTIONS
+    /**============================================
+     *       SEARCH BY TAGS ONLY: NO CAPTIONS
+     *=============================================**/
     private async searchByTags(
         user_id: bigint,
         tags: string[],
@@ -141,6 +145,9 @@ export class SearchService {
         return { photos, nextCursor };
     }
 
+    /**============================================
+     *         SEARCH BY CAPTIONS (+TAGS)
+     *=============================================**/
     private async searchByCaptionAndTags(
         user_id: bigint,
         caption: string,
@@ -173,174 +180,3 @@ export class SearchService {
         return { photos: photoPayload, nextCursor };
     }
 }
-
-// async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
-//         const user_id = request.user.id;
-//         const { tag, caption, match, limit, cursor_rank, cursor_id } = request.query as {
-//             tag?: string;
-//             caption?: string;
-//             match: 'any' | 'all';
-//             limit: number;
-//             cursor_rank?: number;
-//             cursor_id?: string;
-//         };
-//         // normalize tags and caption search
-//         const tags = normalizeTags(
-//             (tag ?? '').split(',').filter(Boolean)
-//         );
-//         if (tags.length > 0 && tags.length > 10) {
-//             return reply.sendError('Exceeded max number of tag filters (10)');
-//         }
-//         const captions = normalizeCaption(caption ?? '');
-
-//         // store whether tags and captions were present in query
-//         const hasTagFilter = tags.length > 0;
-//         const hasCaptionSearch = captions.length > 0;
-
-//         const cursor = buildCursor(cursor_id, cursor_rank);
-        
-//         debugPrint({
-//             tags,
-//             captions,
-//             match,
-//             limit,
-//             cursor
-//         }, 'PhotoController.findAllFromUser');
-
-//         try {
-//             // 1. no filters: get all photos from user
-//             if (!hasTagFilter && !hasCaptionSearch) {
-//                 // get ids
-//                 const { photoIds, nextCursor } = await this.photoModel.findAllFromUser(
-//                     user_id,
-//                     cursor,
-//                     limit
-//                 );
-//                 if (photoIds.length === 0) {
-//                     return reply.status(200).send({ photoIds, nextCursor, count: 0 });
-//                 }
-
-//                 // resolve ids -> cached metadata
-//                 const photoMap = await this.cache.getCachedPhotos(photoIds);
-//                 debugPrint(photoMap, '[PHOTO] got photoMap');
-
-//                 // get final photos array (fetch any missing metadata + update cache as needed)
-//                 const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-                
-//                 // return photos + next cursor to client
-//                 return reply.status(200).send({ photos, nextCursor });
-//             }
-//             // 2. tags only
-//             if (hasTagFilter && !hasCaptionSearch) {
-//                 // check if search query exists in cache
-//                 const photoIds = await this.cache.getCachedTagSearch(user_id, tags, cursor, limit);
-//                 // cache hit: resolve ids -> cached metadata
-//                 if (photoIds !== null) {
-//                     console.log(chalk.green.bold('CACHE HIT - TAG SEARCH'), photoIds);
-
-//                     const photoMap = await this.cache.getCachedPhotos(photoIds);
-//                     const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-
-//                     const nextCursor = (photoIds.length > 0)
-//                         ? photoIds[photoIds.length - 1]
-//                         : null;
-//                     return reply.status(200).send({ photos, nextCursor });
-//                 }
-
-//                 console.log(chalk.red.bold('CACHE MISS - TAG SEARCH'));
-
-//                 const { photos, nextCursor } = await this.photoModel.findByTags(
-//                     tags,
-//                     match,
-//                     user_id,
-//                     cursor,
-//                     limit
-//                 );
-//                 await this.cache.cacheTagSearch(user_id, tags, photos.map(p => p.id), nextCursor === null);
-//                 await this.cache.cachePhotos(photos);
-//                 return reply.status(200).send({ photos, nextCursor });
-//             }
-//             // 3. captions only
-//             if (hasCaptionSearch && !hasTagFilter) {
-//                 // check if search query exists in cache
-//                 let photoIds = await this.cache.getCachedCaptionSearch(user_id, [], captions, cursor, limit);
-//                 // cache hit: resolve ids -> cached metadata
-//                 if (photoIds !== null) {
-//                     console.log(chalk.green.bold('CACHE HIT - CAPTION SEARCH'), photoIds);
-
-//                     const photoMap = await this.cache.getCachedPhotos(photoIds);
-//                     const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-
-//                     const nextCursor = (photoIds.length > 0)
-//                         ? photoIds[photoIds.length - 1]
-//                         : null;
-//                     return reply.status(200).send({ photos, nextCursor });
-//                 }
-
-//                 console.log(chalk.red.bold('CACHE MISS - CAPTION SEARCH'));
-
-//                 const { photos, nextCursor } = await this.captionService.searchCaptions(
-//                     captions,
-//                     match,
-//                     user_id,
-//                     cursor,
-//                     limit
-//                 );
-//                 // const photoPayload = await this.photoModel.findByIds(photos.map(p => p.photo_id), user_id);
-                
-//                 await this.cache.cacheCaptionSearch(
-//                     user_id,
-//                     [],
-//                     captions,
-//                     photos,
-//                     nextCursor === null
-//                 );
-//                 const photoMap = await this.cache.getCachedPhotos(photos.map(p => p.photo_id));
-//                 const photoPayload = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-//                 await this.cache.cachePhotos(photoPayload);
-//                 // console.log('CAPTION SEARCH RESULTS:', photos);
-//                 return reply.status(200).send({ photos: photoPayload, nextCursor });
-//             }
-//             // 4. tags + captions
-//             // check if search query exists in cache
-//             let photoIds = await this.cache.getCachedCaptionSearch(user_id, tags, captions, cursor, limit);
-//             // cache hit: resolve ids -> cached metadata
-//             if (photoIds !== null) {
-//                 console.log(chalk.green.bold('CACHE HIT - CAPTION SEARCH'), photoIds);
-
-//                 const photoMap = await this.cache.getCachedPhotos(photoIds);
-//                 const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-
-//                 const nextCursor = (photoIds.length > 0)
-//                     ? photoIds[photoIds.length - 1]
-//                     : null;
-//                 return reply.status(200).send({ photos, nextCursor });
-//             }
-
-//             const { photos, nextCursor } = await this.captionService.searchCaptionsAndTags(
-//                 captions,
-//                 tags,
-//                 match,
-//                 user_id,
-//                 cursor,
-//                 limit
-//             );
-//             // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
-//             const photoMap = await this.cache.getCachedPhotos(photos.map(p => p.photo_id));
-//             const photoPayload = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-//             await this.cache.cachePhotos(photoPayload);
-//             // console.log('CAPTION SEARCH RESULTS:', photos);
-//             // const photoPayload = await this.photoModel.findByIds(photos.map(p => p.photo_id), user_id);
-//             await this.cache.cacheCaptionSearch(
-//                 user_id,
-//                 tags,
-//                 captions,
-//                 photos,
-//                 nextCursor === null
-//             );
-//             return reply.status(200).send({ photos: photoPayload, nextCursor });
-//         } catch (err) {
-//             console.error('Error in PhotoController.findAllFromUser:', err);
-//             return reply.sendError(err);
-//         }
-//     }

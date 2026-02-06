@@ -1,5 +1,5 @@
 import { PhotoModel } from '@/models/photo.model.js';
-import { uploadPhotos } from '@/services/photo.upload.js';
+import { mapPhotosToUrls, uploadPhotos } from '@/services/photo.upload.js';
 import { TagService, normalizeTags } from '@/services/tag.service.js';
 import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { FastifyReply, FastifyRequest } from "fastify";
@@ -50,24 +50,25 @@ export class PhotoController {
                     }
                     return { ...photo, photo_id };
                 });
-                // debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
+                debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
 
                 // insert tags and photo_tags
                 const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
-                // if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
+                if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
                 
                 // insert captions
                 const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
-                // if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
+                if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
 
                 // return photo with structured metadata
                 return await this.photoModel.findByIds(newPhotos.map(p => p.id), user_id, tx);
             });
 
+            debugPrintNested(result, 'testing result');
             // store new photo data in cache
             await this.cache.cachePhotos(result);
 
-            return reply.status(201).send({ photos: result });
+            return reply.status(201).send({ photos: mapPhotosToUrls(result), count: result.length });
         } catch (err) {
             console.error('Error in PhotoController.upload:', err);
             return reply.sendError(err);
@@ -104,20 +105,28 @@ export class PhotoController {
 
         try {
             const { photos, nextCursor } = await this.searchService.searchPhotos(user_id, searchQuery);
-            if (nextCursor) 
-            {
-                debugPrint(nextCursor, 'findAllFromUser: next cursor');
-            } else {
-                console.log('next cursor is null');
-            }
-            
 
-            return reply.status(200).send({ photos, nextCursor });
+            return reply.status(200).send({ photos: mapPhotosToUrls(photos), nextCursor });
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);
         }
     }
+
+    // // GET /photos/:id
+    // async findPhotoById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    //     const user_id = request.user.id;
+    //     const photo_id = parseBigInt(request.params.id, 'photo_id');
+
+    //     try {
+    //         // check cache
+    //         const photo = await this.searchService.resolveIdsToPhotos(user_id, [photo_id]);
+    //         return reply.status(200).send({ photo_id });
+    //     } catch (err) {
+    //         console.error('Error in PhotoController.updateCaption:', err);
+    //         return reply.sendError(err);
+    //     }
+    // }
 
     // PATCH /photos/:id/tags
     /*
@@ -132,9 +141,9 @@ export class PhotoController {
     4. tags:
         - clean up tags that are no longer used in photo_tags
     -- COMMIT TRANSACTION */
-    async updatePhotoTags(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async updatePhotoTags(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const photo_id = request.params.id;
+        const photo_id = parseBigInt(request.params.id, 'photo_id');
         const { tags_to_insert, tags_to_remove } = request.body as {
             tags_to_insert?: string[];
             tags_to_remove?: string[];
@@ -145,8 +154,8 @@ export class PhotoController {
             const originalTags = await this.photoModel.getTagsOnPhoto(photo_id);
             console.log('ORIGINAL TAGS ON PHOTO:', originalTags.map(t => t.tags));
 
-            const finalTags = await this.prisma.$transaction(async (tx) => {
-                await this.tagService.updatePhotoTags(
+            const { isChanged, finalTags } = await this.prisma.$transaction(async (tx) => {
+                const isChanged = await this.tagService.updatePhotoTags(
                     tags_to_insert ?? [],
                     tags_to_remove ?? [],
                     photo_id,
@@ -155,7 +164,7 @@ export class PhotoController {
                 );
 
                 // fetch final state
-                return tx.photo_tags.findMany({
+                const finalTags = await tx.photo_tags.findMany({
                     where: {
                         photo_id
                     },
@@ -168,9 +177,16 @@ export class PhotoController {
                         }
                     }
                 });
+                return { isChanged, finalTags };
             });
 
-            return reply.status(200).send({ tags: finalTags.map(t => t.tags) })
+            if (isChanged) {
+                await this.cache.invalidatePhotos([photo_id]);
+            } else {
+                console.log(chalk.cyan(`no changes made to tags for photo ${photo_id}`));
+            }
+
+            return reply.status(200).send({ photo_id, tags: finalTags.map(t => t.tags.tag_name) })
         } catch (err) {
             console.error('Error in PhotoController.updatePhotoTags:', err);
             return reply.sendError(err);
@@ -178,14 +194,15 @@ export class PhotoController {
     }
 
     // PATCH /photos/:id/caption
-    async updateCaption(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async updateCaption(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const photo_id = request.params.id;
+        const photo_id = parseBigInt(request.params.id, 'photo_id');
         const { caption } = request.body as { caption: string };
 
         try {
             const newCaption = await this.captionService.updateCaption(photo_id, caption);
-            return reply.status(200).send({ caption: newCaption });
+            await this.cache.invalidatePhotos([photo_id]);
+            return reply.status(200).send({ photo_id, caption: newCaption });
         } catch (err) {
             console.error('Error in PhotoController.updateCaption:', err);
             return reply.sendError(err);
@@ -193,16 +210,17 @@ export class PhotoController {
     }
 
     // DELETE /photos/:id
-    async delete(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const photo_id = request.params.id;
+        const photo_id = parseBigInt(request.params.id, 'photo_id');
         if (!photo_id) {
             return reply.sendError('Photo details not found in request');
         }
 
         try {
-            const response = await this.photoModel.delete(photo_id, user_id);
-            console.log('deleted photo:', response);
+            const result = await this.photoModel.delete(photo_id, user_id);
+            console.log(chalk.red('deleted photo:', result));
+            await this.cache.invalidatePhotos([photo_id]);
 
             return reply.status(200).send({ success: true });
         } catch (err) {
@@ -212,9 +230,9 @@ export class PhotoController {
     }
 
     // PATCH /photos/:id/restore - recover deleted photo
-    async restore(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async restore(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const photo_id = request.params.id;
+        const photo_id = parseBigInt(request.params.id, 'photo_id');
         if (!photo_id) {
             return reply.sendError('Photo details not found in request');
         }
@@ -223,7 +241,7 @@ export class PhotoController {
             const photo = await this.photoModel.restore(photo_id, user_id);
             console.log('restored photo:', photo);
 
-            return reply.status(200).send({ photo });
+            return reply.status(200).send({ success: true });
         } catch (err) {
             console.error('Error in PhotoController.restore:', err);
             return reply.sendError(err);

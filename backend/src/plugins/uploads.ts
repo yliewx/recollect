@@ -1,12 +1,13 @@
 import fp from 'fastify-plugin';
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import fastifyMultipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import fs from 'fs';
 import { uploadsDir } from '@/types/constants.js';
 
-export default fp(async function setUploadsDir(app: FastifyInstance) {
+export default fp(async function configUploads(app: FastifyInstance) {
     app.register(fastifyMultipart, {
+        // attachFieldsToBody: 'keyValues',
         limits: {
             fieldNameSize: 100,
             fieldSize: 10000, // max 10kb for json metadata

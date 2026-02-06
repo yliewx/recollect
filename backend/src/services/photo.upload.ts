@@ -3,6 +3,7 @@ import { FastifyRequest } from 'fastify';
 import { pipeline } from 'stream/promises';
 import path from 'path';
 import fs from 'fs';
+import { PhotoPayload } from '@/models/photo.model.js';
 
 const validFileTypes = [
     'image/jpeg',
@@ -17,7 +18,6 @@ interface UploadFile {
 }
 
 interface UploadMetadata {
-    filename: string;
     caption?: string;
     tags?: string[];
 }
@@ -30,13 +30,28 @@ export interface PhotoData {
 
 export type InsertedPhotoData = PhotoData & { photo_id: bigint };
 
+type PhotoWithUrl = Omit<PhotoPayload, 'file_path'> & {
+    url: string;
+};
+
+export function mapPhotosToUrls(photos: PhotoPayload[]): PhotoWithUrl[] {
+    return photos.map((data) => ({
+        ...data,
+        url: `/uploads/${encodeURIComponent(data.file_path)}`,
+    }));
+}
+
+/**============================================
+ *          MULTIPART FILE UPLOADS
+ *=============================================**/
+
 async function parseFiles(part: any): Promise<UploadFile> {
     // generate unique filename
     const ext = path.extname(part.filename);
     const uploadName = crypto.randomUUID() + ext;
     const uploadPath = path.join(uploadsDir, uploadName);
-    // console.log('uploadName:', uploadName);
-    // console.log('uploadPath:', uploadPath);
+    console.log('uploadName:', uploadName);
+    console.log('uploadPath:', uploadPath);
 
     // write image to uploads directory
     await pipeline(part.file, fs.createWriteStream(uploadPath));
@@ -51,14 +66,10 @@ async function parseMetadata(
     files: UploadFile[],
     metadata: UploadMetadata[]
 ): Promise<PhotoData[]> {
-    // map original filename -> metadata object
-    const metaByFilename = new Map(
-        metadata.map(meta => [meta.filename, meta])
-    );
-
     // create a new array combining photo upload_name, caption and tags
-    const result = files.map(file => {
-        const meta = metaByFilename.get(file.original_filename);
+    // metadata must be in the same order as the photos uploaded
+    const result = files.map((file, index) => {
+        const meta = metadata[index];
         return {
             file_path: file.upload_name,
             caption: meta?.caption ?? undefined,
@@ -89,10 +100,12 @@ export async function uploadPhotos(request: FastifyRequest): Promise<PhotoData[]
                 ? part.value.toString('utf-8')
                 : part.value;
 
-            const meta = JSON.parse(valueStr).items ?? [];
-            if (meta.length > 0) {
-                uploadMetadata.push(... meta);
-            }
+            const parsed = JSON.parse(valueStr);
+            const meta = Array.isArray(parsed)
+                ? parsed
+                : (parsed.items ?? []);
+
+            if (Array.isArray(meta)) uploadMetadata = meta;
         }
     }
     return await parseMetadata(uploadFiles, uploadMetadata);

@@ -163,8 +163,6 @@ export class CacheService {
             }
             // update cache
             await this.cachePhotos(fetchedPhotos);
-        } else {
-            console.log(`photos to fetch: ${photosToFetch.length}. nothing to fetch`);
         }
 
         // get final array of photo metadata objects
@@ -172,14 +170,23 @@ export class CacheService {
             .filter((v): v is PhotoPayload => v !== null);
     }
 
-    /*async deletePhoto(photo_id: bigint, user_id: bigint) {
-        await this.redis.del(this.buildPhotoKey(photo_id));
-        await this.redis.srem(
-            this.buildUserPhotosKey(user_id),
-            photo_id.toString()
-        );
+    /**============================================
+     *         INVALIDATE PHOTO CACHE
+     *=============================================**/
+    // remove photos from cache on delete or tag/caption update
+    async invalidatePhotos(photo_ids: bigint[]) {
+        if (photo_ids.length === 0) return;
+
+        const pipeline = this.redis.pipeline();
+
+        for (const id of photo_ids) {
+            pipeline.del(this.buildPhotoKey(id));
+        }
+
+        await pipeline.exec();
+
+        console.log(chalk.red('invalidated cache for photos:', photo_ids));
     }
-    */
 
     /**========================================================================
      *                    SEARCH RESULTS CACHE (SORTED SETS)
@@ -249,11 +256,12 @@ export class CacheService {
             
             // cursor not found: fallback to db
             if (cursorScore === null) return null;
+            const score = Number(cursorScore);
             
             // get next <limit> items after cursor
             const results = await this.redis.zrangebyscore(
                 key,
-                cursorScore + 1, // minimum index
+                score + 1, // minimum index
                 '+inf', // max index
                 'LIMIT', 0, limit // pagination limit
             );
@@ -344,11 +352,12 @@ export class CacheService {
             
             // cursor not found: fallback to db
             if (cursorScore === null) return null;
+            const score = Number(cursorScore);
 
             // get next <limit> items after the cursor
             const results = await this.redis.zrangebyscore(
                 key,
-                -cursorScore + 1e-12,
+                -score + 1e-12,
                 // `(${cursorScore}`, // strictly greater than cursorScore
                 '+inf',
                 'LIMIT', 0, limit

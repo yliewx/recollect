@@ -39,9 +39,9 @@ export class AlbumController {
 
     // POST /albums/:id/photos - add photo to album
     // only accept existing photos (photo_id). photos are uploaded separately
-    async addPhotos(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async addPhotos(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         const { photo_ids } = request.body as any;
 
         if (!album_id || !photo_ids || !Array.isArray(photo_ids)) {
@@ -71,9 +71,9 @@ export class AlbumController {
     }
 
     // GET /albums/:id/photos - get all photos from album
-    async findAllPhotosFromAlbum(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async findAllPhotosFromAlbum(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         const { tag, caption, match, limit, cursor_rank, cursor_id } = request.query as {
             tag?: string;
             caption?: string;
@@ -126,11 +126,11 @@ export class AlbumController {
 
     // DELETE /albums/:id/photos - remove photos from album
     async deleteAlbumPhotos(
-        request: FastifyRequest<{ Params: { id: bigint }}>,
+        request: FastifyRequest<{ Params: { id: string } }>,
         reply: FastifyReply
     ) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         const { photo_ids } = request.body as { photo_ids: string[] };
     
         debugPrint({ user_id, album_id, photo_ids }, 'AlbumController.deleteAlbumPhotos');
@@ -147,9 +147,9 @@ export class AlbumController {
     }
 
     // DELETE /albums/:id
-    async delete(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async delete(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         if (!album_id) {
             return reply.sendError('Album details not found in request');
         }
@@ -165,9 +165,9 @@ export class AlbumController {
     }
 
     // PATCH /albums/:id/restore - recover deleted album
-    async restore(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
+    async restore(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         if (!album_id) {
             return reply.sendError('Album details not found in request');
         }
@@ -184,11 +184,11 @@ export class AlbumController {
 
     // PATCH /albums/:id/title
     async renameAlbum(
-        request: FastifyRequest<{ Params: { id: bigint }}>,
+        request: FastifyRequest<{ Params: { id: string } }>,
         reply: FastifyReply
     ) {
         const user_id = request.user.id;
-        const album_id = request.params.id;
+        const album_id = parseBigInt(request.params.id, 'album_id');
         const { title } = request.body as { title: string };
     
         debugPrint({ user_id, album_id, title }, 'AlbumController.renameAlbum');

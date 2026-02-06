@@ -1,9 +1,10 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import connectPrisma from './plugins/prisma.js';
 import connectRedis from './plugins/redis.js'
-import setUploadsDir from './plugins/uploads.js';
+import configUploads from './plugins/uploads.js';
 import setErrorReply from './plugins/reply.error.js';
 import setBigIntHandler from './plugins/bigint.handler.js';
+import configSwagger from './plugins/swagger.js';
 import { userRoutes } from './routes/user.routes.js';
 import { photoRoutes } from './routes/photo.routes.js';
 import { albumRoutes } from './routes/album.routes.js';
@@ -32,13 +33,16 @@ export async function buildApp(options = {}): Promise<FastifyInstance> {
     await app.register(connectRedis);
 
     // handle file uploads
-    app.register(setUploadsDir);
+    app.register(configUploads);
 
     // register error handler for requests
     app.register(setErrorReply);
 
     // handle conversion of bigint (IDs) to string in responses
     app.register(setBigIntHandler);
+
+    // register swagger
+    app.register(configSwagger);
 
     // init shared services
     const tagService = new TagService(app.prisma);

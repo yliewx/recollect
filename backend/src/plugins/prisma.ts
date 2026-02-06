@@ -22,7 +22,10 @@ export default fp(async function connectPrisma(app: FastifyInstance) {
     const connectionString = process.env.DATABASE_URL ?? 'postgresql://dbuser:dbuserpw@postgres:5432/photo_db';
     
     const adapter = new PrismaPg({ connectionString });
-    const prisma = new PrismaClient({ adapter });
+    const prisma = new PrismaClient({
+        adapter,
+        log: [{ level: 'query', emit: 'event' }],
+    });
 
     await connectDb(prisma);
     console.log('connected to db at', Date.now());
@@ -32,4 +35,12 @@ export default fp(async function connectPrisma(app: FastifyInstance) {
     app.addHook('onClose', async (app) => {
         await app.prisma.$disconnect()
     })
+
+    prisma.$on('query', (e) => {
+        console.log({
+            query: e.query,
+            params: e.params,
+            duration_ms: e.duration,
+        });
+    });
 })

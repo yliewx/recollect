@@ -18,7 +18,7 @@ export class UserController {
 
             return reply.status(201).send({ user: newUser });
         } catch (err) {
-            // console.error('Error in UserController.create:', err);
+            console.error('Error in UserController.create:', err);
             return reply.sendError(err);
         }
     }

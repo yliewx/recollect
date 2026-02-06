@@ -7,6 +7,11 @@ const server = await buildApp({
         transport: {
             target: 'pino-pretty'
         }
+    },
+    ajv: {
+        customOptions: {
+            strict: false // for demo
+        }
     }
 });
 
