@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { buildApp } from './app.js';
 
-const server = buildApp({
+const server = await buildApp({
     logger: {
         level: 'info',
         transport: {

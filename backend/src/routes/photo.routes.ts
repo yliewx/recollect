@@ -5,6 +5,8 @@ import userContext from '@/plugins/user.context.js';
 import { TagService } from '@/services/tag.service.js';
 import { CaptionService } from '@/services/caption.service.js';
 import { CacheService } from '@/services/cache.service.js';
+import { SearchService } from '@/services/search.service.js';
+import { Services } from '@/types/search.js';
 
 /* define query parameters and types
 eg.
@@ -33,7 +35,7 @@ const querySchema = {
                 default: 20,
             },
             cursor_rank: { type: 'number' }, // only applicable for caption FTS
-            cursor_photo_id: { type: 'string' },
+            cursor_id: { type: 'string' },
         },
     }
 };
@@ -72,13 +74,21 @@ const updateCaptionSchema = {
     }
 };
 
-export async function photoRoutes(app: FastifyInstance) {
+export async function photoRoutes(app: FastifyInstance, services: Services) {
+    const {
+        tagService,
+        captionService,
+        cacheService,
+        searchService,
+    } = services;
+
     const photoController = new PhotoController(
         app.prisma,
         new PhotoModel(app.prisma),
-        new TagService(app.prisma),
-        new CaptionService(app.prisma),
-        new CacheService(app.redis)
+        tagService,
+        captionService,
+        cacheService,
+        searchService,
     );
 
     // protected

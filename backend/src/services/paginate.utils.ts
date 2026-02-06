@@ -1,3 +1,7 @@
+import { parseBigInt } from "@/plugins/bigint.handler.js";
+
+export type Cursor = { id: bigint, rank?: number};
+
 // helper function for cursor-based pagination
 export async function paginateFindMany<T>(
     model: any,
@@ -34,9 +38,31 @@ export async function paginateFindMany<T>(
 }
 
 // helper function to build cursor options for query
-export function buildCursorOptions(cursor?: bigint) {
-    if (cursor !== undefined) {
-        return { cursor: { id: cursor }, skip: 1 };
+export function buildCursorOptions(cursor?: Cursor) {
+    if (cursor !== undefined && cursor.id !== undefined) {
+        return { cursor: { id: cursor.id }, skip: 1 };
     }
     return {};
+}
+
+export function buildCursor(
+    cursorId?: string,
+    cursorRank?: number
+): Cursor | undefined {
+    // no cursor provided
+    if (cursorId === undefined) return undefined;
+
+    const id = parseBigInt(cursorId, 'cursorId');
+
+    const cursor: Cursor = { id: id, rank: cursorRank };
+    return cursor;
+}
+
+export function nextCursorFromIds(photoIds: bigint[], rank?: number): Cursor | null {
+    if (photoIds.length === 0) return null;
+
+    if (rank !== undefined) {
+        return { id: photoIds[photoIds.length - 1], rank };
+    }
+    return { id: photoIds[photoIds.length - 1] };
 }

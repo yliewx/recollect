@@ -1,6 +1,6 @@
 import { Photo, Tag, PhotoTag, Caption } from "@/types/models.js";
 import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
-import { paginateFindMany, buildCursorOptions } from "@/services/paginate.utils.js";
+import { paginateFindMany, buildCursorOptions, Cursor } from "@/services/paginate.utils.js";
 
 // raw result from prisma includes
 export type PhotoWithMetadata = Photo & {
@@ -48,10 +48,10 @@ export class PhotoModel {
     // only return photo ids, no metadata (avoid extra joins)
     async findAllFromUser(
         user_id: bigint,
-        cursor?: bigint,
+        cursor?: Cursor,
         take = 20,
         album_id?: bigint
-    ): Promise<{ photoIds: bigint[], nextCursor: bigint | null }> {
+    ): Promise<{ photoIds: bigint[], nextCursor: Cursor | null }> {
         const result = await paginateFindMany<{ id: bigint }>(this.prisma.photos, {
             ...buildCursorOptions(cursor),
             take,
@@ -68,7 +68,7 @@ export class PhotoModel {
 
         // get next cursor: bookmark the last id in the result set
         const nextCursor = (photoIds.length > 0)
-            ? photoIds[photoIds.length - 1]
+            ? { id: photoIds[photoIds.length - 1] }
             : null;
         
         return { photoIds, nextCursor };
@@ -135,11 +135,16 @@ export class PhotoModel {
         tags: string[],
         match: 'any' | 'all' = 'any',
         user_id: bigint,
-        cursor?: bigint,
+        cursor?: Cursor,
         take = 20,
         album_id?: bigint
-    ) {
-        if (tags.length === 0) return [];
+    ): Promise<{ photos: PhotoPayload[], nextCursor: Cursor | null }> {
+        if (tags.length === 0) {
+            return {
+                photos: [],
+                nextCursor: cursor ?? null
+            };
+        }
 
         const result = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
             ...buildCursorOptions(cursor),
@@ -171,7 +176,7 @@ export class PhotoModel {
 
         // get next cursor: bookmark the last id in the result set
         const nextCursor = (photos.length > 0)
-            ? photos[photos.length - 1].id
+            ? { id: photos[photos.length - 1].id }
             : null;
         
         return { photos, nextCursor };

@@ -4,6 +4,8 @@ import { normalizeTags } from './tag.service.js';
 import { normalizeCaption } from './caption.service.js';
 import { Photo } from '@/types/models.js';
 import { PhotoPayload } from '@/models/photo.model.js';
+import chalk from 'chalk';
+import { Cursor } from './paginate.utils.js';
 
 export interface CachedPhoto {
     user_id: string;
@@ -37,8 +39,18 @@ export class CacheService {
         return `photo:${photo_id}`;
     }
 
+    // meta key for checking search cache completeness
+    buildSearchCompleteKey(searchKey: string): string {
+        return `${searchKey}:complete`;
+    }
+
     // cache key for captions/tags/combined captions+tags
-    buildSearchKey(user_id: bigint, tags: string[], caption: string): string {
+    buildSearchKey(
+        user_id: bigint,
+        tags: string[],
+        caption: string,
+        match: 'any' | 'all'
+    ): string {
         const hasTagFilter = tags.length > 0;
         const hasCaptionSearch = caption.length > 0;
         if (!hasTagFilter && !hasCaptionSearch) return '';
@@ -58,7 +70,7 @@ export class CacheService {
                 ? 'tags'
                 : 'caption';
 
-        return `user:${user_id}:search:${category}:${query_hash}`;
+        return `user:${user_id}:search:${category}:${query_hash}:${match}`;
     }
 
     /**========================================================================
@@ -152,7 +164,7 @@ export class CacheService {
             // update cache
             await this.cachePhotos(fetchedPhotos);
         } else {
-            console.log('NOTHING TO FETCH');
+            console.log(`photos to fetch: ${photosToFetch.length}. nothing to fetch`);
         }
 
         // get final array of photo metadata objects
@@ -181,20 +193,32 @@ export class CacheService {
     async cacheTagSearch(
         user_id: bigint,
         tags: string[],
-        photo_ids: bigint[]
+        match: 'any' | 'all',
+        photo_ids: bigint[],
+        isComplete: boolean = false
     ) {
-        const key = this.buildSearchKey(user_id, tags, '');
-        if (!key || photo_ids.length === 0) return;
+        const key = this.buildSearchKey(user_id, tags, '', match);
+        if (!key) return;
 
         console.log('[ADD] tag search key:', key);
 
         const pipeline = this.redis.pipeline();
 
-        // use array index to set ids in original order
-        photo_ids.forEach((photo_id, index) => {
-            pipeline.zadd(key, index, photo_id.toString());
-        });
-        pipeline.expire(key, this.defaultSearchTTL);
+        // use array index to append ids in original order
+        if (photo_ids.length > 0) {
+            const offset = await this.redis.zcard(key);
+            photo_ids.forEach((photo_id, index) => {
+                pipeline.zadd(key, index + offset, photo_id.toString());
+            });
+            pipeline.expire(key, this.defaultSearchTTL);
+        }
+
+        // set cache completeness flag
+        if (isComplete) {
+            const completeKey = this.buildSearchCompleteKey(key);
+            pipeline.set(completeKey, '1', 'EX',this.defaultSearchTTL);
+            console.log(chalk.green.bold(`set ${key} as complete`));
+        }
         
         await pipeline.exec();
     }
@@ -205,20 +229,23 @@ export class CacheService {
     async getCachedTagSearch(
         user_id: bigint,
         tags: string[],
-        cursor_id?: bigint,
+        match: 'any' | 'all',
+        cursor?: Cursor,
         limit = 20
     ): Promise<bigint[] | null> {
-        const key = this.buildSearchKey(user_id, tags, '');
+        const key = this.buildSearchKey(user_id, tags, '', match);
         if (!key) return null;
 
         const exists = await this.redis.exists(key);
         if (!exists) return null;
 
+        const isComplete = await this.redis.exists(this.buildSearchCompleteKey(key));
+
         console.log('[GET] tag search key:', key);
 
-        if (cursor_id !== undefined) {
+        if (cursor !== undefined) {
             // find cursor position
-            const cursorScore = await this.redis.zscore(key, cursor_id.toString());
+            const cursorScore = await this.redis.zscore(key, cursor.id.toString());
             
             // cursor not found: fallback to db
             if (cursorScore === null) return null;
@@ -230,7 +257,13 @@ export class CacheService {
                 '+inf', // max index
                 'LIMIT', 0, limit // pagination limit
             );
-            
+
+            // if cache is incomplete: fallback to db
+            if (results.length < limit && !isComplete) {
+                console.log(chalk.red.bold('tag cache incomplete. fallback to db'));
+                return null;
+            }
+
             return results.map(id => BigInt(id));
         }
 
@@ -249,21 +282,32 @@ export class CacheService {
         user_id: bigint,
         tags: string[],
         caption: string,
-        results: Array<{ photo_id: bigint; rank: number }>
+        match: 'any' | 'all',
+        results: Array<{ photo_id: bigint; rank: number }>,
+        isComplete: boolean = false
     ) {
-        const key = this.buildSearchKey(user_id, tags, caption);
-        if (!key || results.length === 0) return;
+        const key = this.buildSearchKey(user_id, tags, caption, match);
+        if (!key) return;
 
-        console.log('caption search key:', key);
+        console.log(chalk.cyan('[ADD] caption search key:', key));
 
         const pipeline = this.redis.pipeline();
         
-        // sorted set with negative FTS rank as score -> keep results in descending order of score
+        // set negative FTS rank as score -> keep results in descending order of score
         // sorted sets are in ascending order by default
-        results.forEach(({ photo_id, rank }) => {
-            const score = -rank + Number(photo_id) * 1e-12;
-            pipeline.zadd(key, score, photo_id.toString());
-        });
+        if (results.length > 0) {
+            results.forEach(({ photo_id, rank }) => {
+                const score = -rank + Number(photo_id) * 1e-12; // small tiebreaker
+                pipeline.zadd(key, score, photo_id.toString());
+            });
+        }
+        
+        // set cache completeness flag
+        if (isComplete) {
+            const completeKey = this.buildSearchCompleteKey(key);
+            pipeline.set(completeKey, '1', 'EX',this.defaultSearchTTL);
+            console.log(chalk.green.bold(`set ${key} as complete`));
+        }
         
         pipeline.expire(key, this.defaultSearchTTL);
         await pipeline.exec();
@@ -276,27 +320,45 @@ export class CacheService {
         user_id: bigint,
         tags: string[],
         caption: string,
-        cursor_rank?: number,
-        cursor_id?: bigint,
+        match: 'any' | 'all',
+        cursor?: Cursor,
         limit = 20
     ): Promise<bigint[] | null> {
-        const key = this.buildSearchKey(user_id, tags, caption);
+        const key = this.buildSearchKey(user_id, tags, caption, match);
         if (!key) return null;
 
         const exists = await this.redis.exists(key);
         if (!exists) return null;
 
-        if (cursor_rank !== undefined && cursor_id !== undefined) {
-            // find cursor position to get next <limit> items
-            const cursorScore = -cursor_rank + Number(cursor_id) * 1e-12;
+        console.log(chalk.cyan('[GET] caption search key:', key));
+
+        const isComplete = await this.redis.exists(this.buildSearchCompleteKey(key));
+        
+        const { id } = cursor ?? {};
+        
+        if (id !== undefined) {
+            // find cursor position
+            const cursorScore = await this.redis.zscore(key, id.toString());
+
+            console.log('[caption] cursor score:', cursorScore);
+            
+            // cursor not found: fallback to db
+            if (cursorScore === null) return null;
 
             // get next <limit> items after the cursor
             const results = await this.redis.zrangebyscore(
                 key,
-                cursorScore + 1e-15, // after cursor
+                -cursorScore + 1e-12,
+                // `(${cursorScore}`, // strictly greater than cursorScore
                 '+inf',
                 'LIMIT', 0, limit
             );
+
+            // if cache is incomplete: fallback to db
+            if (results.length < limit && !isComplete) {
+                console.log(chalk.red.bold('caption cache incomplete. fallback to db'));
+                return null;
+            }
 
             return results.map(id => BigInt(id));
         }

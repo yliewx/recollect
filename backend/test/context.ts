@@ -11,7 +11,7 @@ export const testContext = {
 };
 
 export async function initTestContext() {
-    const app = buildApp();
+    const app = await buildApp();
     await app.ready();
     const db = app.prisma;
 

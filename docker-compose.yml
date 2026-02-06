@@ -16,7 +16,7 @@ services:
     networks:
       - recollect
     volumes:
-      - postgres_data:/db
+      # - postgres_data:/db
       - ./backend/uploads:/app/uploads
       - ./test_images:/app/test_images
     # restart: always

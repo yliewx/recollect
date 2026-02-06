@@ -1,56 +1,54 @@
 BEGIN;
 
 -- -------------------------------------
--- USERS: generate 100 users
+-- BULK INSERT USERS (1000)
 -- -------------------------------------
 INSERT INTO users (username, email)
 SELECT
-	'User ' || i, -- generate username
-	'user' || i || '@test.com' -- generate email
-FROM generate_series(1, 100) AS i;
+    'User_' || i, -- generate username
+    'User_' || i || '@test.com' -- generate email
+FROM generate_series(1, 1000) AS i;
 
 -- -------------------------------------
--- ALBUMS: generate 2-5 albums per user
+-- ALBUMS (4000): 4 albums per user
 -- -------------------------------------
 INSERT INTO albums (user_id, title)
 SELECT
-    u.id AS user_id,
-    'Album ' || i || ' of User ' || u.id AS title
+    u.id,
+    'Album_' || g || '_of_User_' || u.id AS title
 FROM users u
-JOIN LATERAL generate_series(
-    1,
-    random(2, 5)
-) i ON true;
+JOIN generate_series(1, 4) g ON true;
 
 -- -------------------------------------
--- PHOTOS: generate 2-10 photos per user
+-- PHOTOS (60k): 60 photos per user
 -- -------------------------------------
 INSERT INTO photos (user_id, file_path)
 SELECT
-    u.id AS user_id,
-    '/uploads/' || gen_random_uuid() || '.jpg'
+    u.id,
+    '/uploads/photo_' || u.id || '_' || g || '.jpg' 
 FROM users u
-JOIN LATERAL generate_series(
-    1,
-    random(2, 10)
-) i ON true;
+JOIN generate_series(1, 60) g ON true;
 
 -- -------------------------------------
--- ALBUM_PHOTOS: assign each photo to a random album from the same user
+-- ALBUM_PHOTOS: assign each photo to an album from the same user
+-- album_id -> (photo_id % 4)
 -- -------------------------------------
 INSERT INTO album_photos (album_id, photo_id)
-SELECT a.id AS album_id, p.id AS photo_id
+SELECT
+    a.id AS album_id,
+    p.id AS photo_id
 FROM photos p
 JOIN LATERAL (
     SELECT id
     FROM albums
     WHERE user_id = p.user_id
-    ORDER BY random()
+    ORDER BY id
     LIMIT 1
+    OFFSET (p.id % 4)
 ) a ON true;
 
 -- -------------------------------------
--- CAPTIONS: generate a caption for each photo
+-- CAPTIONS: 1 per photo
 -- -------------------------------------
 INSERT INTO captions (photo_id, caption)
 SELECT
@@ -59,30 +57,38 @@ SELECT
 FROM photos p;
 
 -- -------------------------------------
--- TAGS: generate 2-5 tags per user
+-- TAGS (6000): 6 tags per user
 -- -------------------------------------
 INSERT INTO tags (user_id, tag_name)
 SELECT
-    u.id AS user_id,
-    'Tag ' || i || ' of User ' || u.id AS tag_name
+    u.id,
+    CASE g
+        WHEN 1 THEN 'sunset'
+        WHEN 2 THEN 'beach'
+        WHEN 3 THEN 'pets'
+        WHEN 4 THEN 'nature'
+        WHEN 5 THEN 'travel'
+        WHEN 6 THEN 'food'
+    END
 FROM users u
-JOIN LATERAL generate_series(
-    1,
-    random(2, 5)
-) i ON true;
+CROSS JOIN generate_series(1, 6) g;
 
 -- -------------------------------------
--- PHOTO_TAGS: assign random tags to photos
+-- PHOTO_TAGS (180k)
+-- 3 tags per photo, cycling through the 6 available tags
 -- -------------------------------------
 INSERT INTO photo_tags (photo_id, tag_id)
-SELECT DISTINCT p.id, t.id
+SELECT
+    p.id AS photo_id,
+    t.id AS tag_id
 FROM photos p
 JOIN LATERAL (
     SELECT id
     FROM tags
-    WHERE tags.user_id = p.user_id
-    ORDER BY random()
-    LIMIT (random(1, 5)) -- random number of tags per photo
+    WHERE user_id = p.user_id
+    ORDER BY id
+    OFFSET (p.id % 6)
+    LIMIT 3
 ) t ON true;
 
 COMMIT;

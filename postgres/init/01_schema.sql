@@ -111,4 +111,21 @@ CREATE INDEX IF NOT EXISTS idx_album_photos_photo_id ON album_photos(photo_id);
 CREATE INDEX IF NOT EXISTS idx_photo_tags_photo_id ON photo_tags(photo_id);
 CREATE INDEX IF NOT EXISTS idx_photo_tags_tag_id ON photo_tags(tag_id);
 
+-- =========================================================
+-- * views
+-- =========================================================
+
+-- enable using GIN index when filtering by photo tags
+CREATE MATERIALIZED VIEW photo_tags_agg AS
+SELECT
+	  pt.photo_id,
+	  ARRAY_AGG(t.tag_name) AS tags
+FROM photo_tags pt
+JOIN tags t ON t.id = pt.tag_id
+GROUP BY pt.photo_id;
+
+-- index on the aggregated view
+CREATE UNIQUE INDEX IF NOT EXISTS idx_photo_tags_agg_photo_id ON photo_tags_agg (photo_id);
+CREATE INDEX IF NOT EXISTS idx_photo_tags_agg ON photo_tags_agg USING GIN (tags);
+
 COMMIT;

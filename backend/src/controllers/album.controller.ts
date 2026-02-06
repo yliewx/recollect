@@ -6,6 +6,8 @@ import { TagService, normalizeTags } from '@/services/tag.service.js';
 import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
 import { CacheService } from '@/services/cache.service.js';
+import { SearchService } from '@/services/search.service.js';
+import { buildCursor } from '@/services/paginate.utils.js';
 
 export class AlbumController {
     constructor(
@@ -13,7 +15,8 @@ export class AlbumController {
         private photoModel: PhotoModel,
         private tagService: TagService,
         private captionService: CaptionService,
-        private cache: CacheService
+        private cache: CacheService,
+        private searchService: SearchService
     ) {}
 
     // POST /albums
@@ -71,116 +74,35 @@ export class AlbumController {
     async findAllPhotosFromAlbum(request: FastifyRequest<{ Params: { id: bigint } }>, reply: FastifyReply) {
         const user_id = request.user.id;
         const album_id = request.params.id;
-        const { tag, caption, match, limit, cursor_rank, cursor_photo_id } = request.query as {
+        const { tag, caption, match, limit, cursor_rank, cursor_id } = request.query as {
             tag?: string;
             caption?: string;
             match: 'any' | 'all';
             limit: number;
             cursor_rank?: number;
-            cursor_photo_id?: string;
+            cursor_id?: string;
         };
         // normalize tags and caption search
         const tags = normalizeTags(
             (tag ?? '').split(',').filter(Boolean)
         );
-        if (tags.length > 0 && tags.length > 10) {
-            return reply.sendError('Exceeded max number of tag filters (10)');
-        }
         const captions = normalizeCaption(caption ?? '');
+        const cursor = buildCursor(cursor_id, cursor_rank);
 
-        // store whether tags and captions were present in query
-        const hasTagFilter = tags.length > 0;
-        const hasCaptionSearch = captions.length > 0;
-
-        const cursor_id = cursor_photo_id !== undefined
-            ? parseBigInt(cursor_photo_id, 'cursor_photo_id')
-            : undefined;
-
-        // only applicable for caption FTS
-        const cursor_fts = cursor_id && cursor_rank !== undefined
-            ? { rank: cursor_rank, photo_id: cursor_id }
-            : undefined;
-
-        debugPrint({
+        const searchQuery = this.searchService.buildSearchQuery(
             tags,
             captions,
             match,
+            cursor,
             limit,
-            cursor_id,
-            cursor_fts
-        }, 'AlbumController.findAllPhotosFromAlbum');
-
-        if (!album_id) {
-            return reply.sendError('Album details not found in request');
-        }
+            album_id
+        );
+        
+        debugPrint(searchQuery, 'AlbumController: SearchQuery');
 
         try {
-            // 1. no filters: get all photos from album
-            if (!hasTagFilter && !hasCaptionSearch) {
-                // get ids
-                const { photoIds, nextCursor } = await this.photoModel.findAllFromUser(
-                    user_id,
-                    cursor_id,
-                    limit,
-                    album_id
-                );
-                if (photoIds.length === 0) {
-                    return reply.status(200).send({ photoIds, nextCursor, count: 0 });
-                }
-
-                // resolve ids -> cached metadata
-                const photoMap = await this.cache.getCachedPhotos(photoIds);
-
-                // get final photos array (fetch any missing metadata + update cache as needed)
-                const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-
-                // return photos + next cursor to client
-                return reply.status(200).send({ photos, nextCursor });
-                // const result = await this.photoModel.findAllFromUser(
-                //     user_id,
-                //     cursor_id,
-                //     limit,
-                //     album_id
-                // );
-                // return reply.status(200).send(result);
-            }
-            // 2. tags only
-            if (hasTagFilter && !hasCaptionSearch) {
-                const result = await this.photoModel.findByTags(
-                    tags,
-                    match,
-                    user_id,
-                    cursor_id,
-                    limit,
-                    album_id
-                );
-                return reply.status(200).send(result);
-            }
-            // 3. captions only
-            if (hasCaptionSearch && !hasTagFilter) {
-                const result = await this.captionService.searchCaptions(
-                    captions,
-                    match,
-                    user_id,
-                    cursor_fts,
-                    limit,
-                    album_id
-                );
-                // console.log('CAPTION SEARCH RESULTS:', photos);
-                return reply.status(200).send(result);
-            }
-            // 4. tags + captions
-            const photos = await this.captionService.searchCaptionsAndTags(
-                captions,
-                tags,
-                match,
-                user_id,
-                cursor_fts,
-                limit,
-                album_id
-            );
-            // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
-            return reply.status(200).send({ photos });
+            const { photos, nextCursor } = await this.searchService.searchPhotos(user_id, searchQuery);
+            return reply.status(200).send({ photos, nextCursor });
         } catch (err) {
             console.error('Error in AlbumController.findAllPhotosFromAlbum:', err);
             return reply.sendError(err);

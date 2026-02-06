@@ -8,6 +8,9 @@ import { PrismaClient } from '@/generated/prisma/client.js';
 import { parseBigInt } from '@/plugins/bigint.handler.js';
 import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
 import { CacheService } from '@/services/cache.service.js';
+import chalk from 'chalk';
+import { buildCursor, Cursor } from '@/services/paginate.utils.js';
+import { SearchService } from '@/services/search.service.js';
 
 export class PhotoController {
     constructor(
@@ -15,7 +18,8 @@ export class PhotoController {
         private photoModel: PhotoModel,
         private tagService: TagService,
         private captionService: CaptionService,
-        private cache: CacheService
+        private cache: CacheService,
+        private searchService: SearchService
     ) {}
 
     // POST /photos
@@ -46,7 +50,7 @@ export class PhotoController {
                     }
                     return { ...photo, photo_id };
                 });
-                debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
+                // debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
 
                 // insert tags and photo_tags
                 const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
@@ -73,109 +77,42 @@ export class PhotoController {
     // GET /photos
     async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
-        const { tag, caption, match, limit, cursor_rank, cursor_photo_id } = request.query as {
+        const { tag, caption, match, limit, cursor_rank, cursor_id } = request.query as {
             tag?: string;
             caption?: string;
             match: 'any' | 'all';
             limit: number;
             cursor_rank?: number;
-            cursor_photo_id?: string;
+            cursor_id?: string;
         };
         // normalize tags and caption search
         const tags = normalizeTags(
             (tag ?? '').split(',').filter(Boolean)
         );
-        if (tags.length > 0 && tags.length > 10) {
-            return reply.sendError('Exceeded max number of tag filters (10)');
-        }
         const captions = normalizeCaption(caption ?? '');
+        const cursor = buildCursor(cursor_id, cursor_rank);
 
-        // store whether tags and captions were present in query
-        const hasTagFilter = tags.length > 0;
-        const hasCaptionSearch = captions.length > 0;
-
-        const cursor_id = cursor_photo_id !== undefined
-            ? parseBigInt(cursor_photo_id, 'cursor_photo_id')
-            : undefined;
-
-        // only applicable for caption FTS
-        const cursor_fts = cursor_id && cursor_rank !== undefined
-            ? { rank: cursor_rank, photo_id: cursor_id }
-            : undefined;
-
-        debugPrint({
+        const searchQuery = this.searchService.buildSearchQuery(
             tags,
             captions,
             match,
-            limit,
-            cursor_id,
-            cursor_fts
-        }, 'PhotoController.findAllFromUser');
+            cursor,
+            limit
+        );
+        
+        debugPrint(searchQuery, 'PhotoController: SearchQuery');
 
         try {
-            // 1. no filters: get all photos from user
-            if (!hasTagFilter && !hasCaptionSearch) {
-                // get ids
-                const { photoIds, nextCursor } = await this.photoModel.findAllFromUser(
-                    user_id,
-                    cursor_id,
-                    limit
-                );
-                if (photoIds.length === 0) {
-                    return reply.status(200).send({ photoIds, nextCursor, count: 0 });
-                }
-
-                // resolve ids -> cached metadata
-                const photoMap = await this.cache.getCachedPhotos(photoIds);
-                debugPrint(photoMap, '[PHOTO] got photoMap');
-
-                // get final photos array (fetch any missing metadata + update cache as needed)
-                const photos = await this.cache.fetchAndMergePhotos(photoMap, user_id, this.photoModel.findByIds.bind(this.photoModel));
-                
-                // return photos + next cursor to client
-                return reply.status(200).send({ photos, nextCursor });
+            const { photos, nextCursor } = await this.searchService.searchPhotos(user_id, searchQuery);
+            if (nextCursor) 
+            {
+                debugPrint(nextCursor, 'findAllFromUser: next cursor');
+            } else {
+                console.log('next cursor is null');
             }
-            // 2. tags only
-            if (hasTagFilter && !hasCaptionSearch) {
-                // // check if search query exists in cache
-                // const photoIds = await this.cache.getCachedTagSearch(user_id, tags, cursor_id, limit);
-                // // cache hit: resolve ids -> cached metadata
-                // if (photoIds !== null) {
+            
 
-                // }
-
-                const result = await this.photoModel.findByTags(
-                    tags,
-                    match,
-                    user_id,
-                    cursor_id,
-                    limit
-                );
-                return reply.status(200).send(result);
-            }
-            // 3. captions only
-            if (hasCaptionSearch && !hasTagFilter) {
-                const result = await this.captionService.searchCaptions(
-                    captions,
-                    match,
-                    user_id,
-                    cursor_fts,
-                    limit
-                );
-                // console.log('CAPTION SEARCH RESULTS:', photos);
-                return reply.status(200).send(result);
-            }
-            // 4. tags + captions
-            const result = await this.captionService.searchCaptionsAndTags(
-                captions,
-                tags,
-                match,
-                user_id,
-                cursor_fts,
-                limit
-            );
-            // console.log('CAPTION + TAG SEARCH RESULTS:', photos);
-            return reply.status(200).send(result);
+            return reply.status(200).send({ photos, nextCursor });
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);

@@ -11,7 +11,7 @@ describe('USER FLOW TESTS:', () => {
 
     before(async function () {
         this.timeout(30_000);
-        app = buildApp();
+        app = await buildApp();
         await app.ready();
     });
 
