@@ -20,7 +20,7 @@ export const photoPayloadSchema = {
     properties: {
         id: { type: 'string' },
         user_id: { type: 'string' },
-        file_path: { type: 'string' },
+        filename: { type: 'string' },
         uploaded_at: { type: 'string' },
         deleted_at: { anyOf: [{ type: 'string' }, { type: 'null' }] },
         caption: { anyOf: [{ type: 'string' }, { type: 'null' }] },

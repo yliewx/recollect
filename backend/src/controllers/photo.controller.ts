@@ -35,16 +35,16 @@ export class PhotoController {
 
             const result = await this.prisma.$transaction(async (tx) => {
                 // bulk insert into photos table
-                const file_paths = photoData.map(photo => photo.file_path);
-                const newPhotos = await this.photoModel.uploadMany(user_id, file_paths, tx);
+                const filenames = photoData.map(photo => photo.filename);
+                const newPhotos = await this.photoModel.uploadMany(user_id, filenames, tx);
                 if (newPhotos.length !== photoData.length) {
                     throw new Error('Failed to upload all images');
                 }
 
-                const filePathToPhotoId = new Map(newPhotos.map(p => [p.file_path, p.id]));
+                const fileNameToPhotoId = new Map(newPhotos.map(p => [p.filename, p.id]));
 
                 const insertedPhotoData = photoData.map(photo => {
-                    const photo_id = filePathToPhotoId.get(photo.file_path);
+                    const photo_id = fileNameToPhotoId.get(photo.filename);
                     if (!photo_id) {
                         throw new Error('Photo ID missing');
                     }

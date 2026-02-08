@@ -28,7 +28,7 @@ export async function initTestContext() {
     const photos = await db.photos.createManyAndReturn({
         data: Array.from({ length: 100 }).map((_, i) => ({
             user_id: testContext.user.id,
-            file_path: `test_${Date.now()}_${i}.jpg`
+            filename: `test_${Date.now()}_${i}.jpg`
         }))
     });
     testContext.photos = serializeBigInt(photos);

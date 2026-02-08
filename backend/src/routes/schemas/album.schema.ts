@@ -1,4 +1,4 @@
-import { idParamSchema, photoPayloadSchema } from "./photo.schema.js";
+import { photoPayloadSchema } from "./photo.schema.js";
 
 const albumSchema = {
     type: 'object',
@@ -11,6 +11,21 @@ const albumSchema = {
         deleted_at: { anyOf: [{ type: 'string' }, { type: 'null' }] },
     },
     additionalProperties: true,
+};
+
+const albumIdParamSchema = {
+    params: {
+        type: 'object',
+        properties: {
+            id: {
+                type: 'string',
+                description: 'Album ID (BigInt serialized as string)',
+                pattern: '^[0-9]+$',
+            },
+        },
+        required: ['id'],
+        additionalProperties: false,
+    },
 };
 
 /**============================================
@@ -131,7 +146,7 @@ export const addAlbumPhotosSchema = {
     tags: ['Albums'],
     summary: 'Add photos to album',
     security: [{ userIdHeader: [] }],
-    ...idParamSchema,
+    ...albumIdParamSchema,
     body: {
         type: 'object',
         properties: {
@@ -164,7 +179,7 @@ export const deleteAlbumPhotosSchema = {
     tags: ['Albums'],
     summary: 'Remove photos from album',
     security: [{ userIdHeader: [] }],
-    ...idParamSchema,
+    ...albumIdParamSchema,
     body: {
         type: 'object',
         properties: {
@@ -197,7 +212,7 @@ export const deleteAlbumSchema = {
     tags: ['Albums'],
     summary: 'Delete album',
     security: [{ userIdHeader: [] }],
-    ...idParamSchema,
+    ...albumIdParamSchema,
     response: {
         200: {
             type: 'object',
@@ -217,7 +232,7 @@ export const restoreAlbumSchema = {
     tags: ['Albums'],
     summary: 'Restore deleted album',
     security: [{ userIdHeader: [] }],
-    ...idParamSchema,
+    ...albumIdParamSchema,
     response: {
         200: {
             type: 'object',
@@ -237,7 +252,7 @@ export const renameAlbumSchema = {
     tags: ['Albums'],
     summary: 'Rename album',
     security: [{ userIdHeader: [] }],
-    ...idParamSchema,
+    ...albumIdParamSchema,
     body: {
         type: 'object',
         properties: {

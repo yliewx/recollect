@@ -22,7 +22,7 @@ JOIN generate_series(1, 4) g ON true;
 -- -------------------------------------
 -- PHOTOS (60k): 60 photos per user
 -- -------------------------------------
-INSERT INTO photos (user_id, file_path)
+INSERT INTO photos (user_id, filename)
 SELECT
     u.id,
     '/uploads/photo_' || u.id || '_' || g || '.jpg' 

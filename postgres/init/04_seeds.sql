@@ -38,7 +38,7 @@ BEGIN
     -- -------------------------------------
     -- PHOTOS (50k): 1000 per album
     -- -------------------------------------
-    INSERT INTO photos (user_id, file_path)
+    INSERT INTO photos (user_id, filename)
     SELECT
         test_user_id,
         '/uploads/photo_' || test_user_id || '_' || i || '.jpg'

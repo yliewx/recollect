@@ -23,21 +23,19 @@ interface UploadMetadata {
 }
 
 export interface PhotoData {
-    file_path: string;
+    filename: string;
     caption?: string;
     tags?: string[];
 }
 
 export type InsertedPhotoData = PhotoData & { photo_id: bigint };
 
-type PhotoWithUrl = Omit<PhotoPayload, 'file_path'> & {
-    url: string;
-};
+type PhotoWithUrl = PhotoPayload & { url: string };
 
 export function mapPhotosToUrls(photos: PhotoPayload[]): PhotoWithUrl[] {
     return photos.map((data) => ({
         ...data,
-        url: `/uploads/${encodeURIComponent(data.file_path)}`,
+        url: `/uploads/${encodeURIComponent(data.filename)}`,
     }));
 }
 
@@ -71,7 +69,7 @@ async function parseMetadata(
     const result = files.map((file, index) => {
         const meta = metadata[index];
         return {
-            file_path: file.upload_name,
+            filename: file.upload_name,
             caption: meta?.caption ?? undefined,
             tags: meta?.tags ?? []
         };
