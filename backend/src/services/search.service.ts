@@ -180,7 +180,6 @@ export class SearchService {
         const ids = rows.map((r) => r.photo_id);
         const photoPayload = await this.resolveIdsToPhotos(user_id, ids);
 
-        debugPrintNested(photoPayload, 'caption');
         if (photoPayload.length > 0) {
             await this.cache.cachePhotos(photoPayload);
             await this.cache.cacheCaptionSearch(user_id, tags, caption, match, rows, nextCursor === null);

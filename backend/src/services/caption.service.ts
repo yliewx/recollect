@@ -1,8 +1,6 @@
 import { PrismaClient } from "@/generated/prisma/client.js";
 import { InsertedPhotoData } from "./photo.upload.js";
-import { Caption } from "@/types/models.js";
 import { Prisma } from "@/generated/prisma/client.js";
-import { PhotoPayload } from "@/models/photo.model.js";
 import { Cursor } from "./paginate.utils.js";
 
 // helper for removing excess whitespace from captions
@@ -19,6 +17,9 @@ export class CaptionService {
         return typeof photo.caption === 'string' && photo.caption.trim() !== '';
     }
 
+    /**============================================
+     *              INSERT CAPTIONS
+     *=============================================**/
     async insertCaptions(
         photoData: InsertedPhotoData[],
         tx?: Prisma.TransactionClient
@@ -40,6 +41,9 @@ export class CaptionService {
         });
     }
 
+    /**============================================
+     *              UPDATE CAPTIONS
+     *=============================================**/
     async updateCaption(photo_id: bigint, caption: string) {
         const finalCaption = normalizeCaption(caption);
 
@@ -53,6 +57,9 @@ export class CaptionService {
         });
     }
 
+    /**============================================
+     *              SEARCH CAPTIONS
+     *=============================================**/
     async searchCaptions(
         query: string,
         match: 'any' | 'all',
@@ -123,6 +130,9 @@ export class CaptionService {
         return { photos, nextCursor };
     }
 
+    /**============================================
+     *            SEARCH CAPTION+TAGS
+     *=============================================**/
     async searchCaptionsAndTags(
         query: string,
         tags: string[],

@@ -22,7 +22,6 @@ all: down up
 up:
 	@echo "$(GREEN)[ Starting containers... ]$(END)"
 	@docker compose $(COMPOSE_FILE) up --build --force-recreate -d
-# psql -h localhost -p 5432 -U dbuser -d photo_db
 
 test: down
 	@echo "$(GREEN)[ Running tests with dependencies... ]$(END)"

@@ -4,21 +4,17 @@ import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 
 export default fp(async function configSwagger(app: FastifyInstance) {
-    // Generates the OpenAPI document from route schemas
     await app.register(swagger, {
         openapi: {
             info: {
-                title: 'Photo App API',
-                description: 'API documentation for the Photo App',
+                title: 'Recollect',
+                description: 'API documentation for Recollect',
                 version: '1.0.0',
             },
-            // IMPORTANT: set to whatever your browser uses to reach the API
-            // If you access backend at http://localhost:3000, keep this:
             servers: [{ url: 'http://localhost:3000' }],
             components: {
                 securitySchemes: {
-                    // Your userContext likely reads `x-user-id`.
-                    // This makes Swagger UI show an "Authorize" button.
+                    // enable user id authentication
                     userIdHeader: {
                         type: 'apiKey',
                         name: 'x-user-id',
@@ -26,12 +22,11 @@ export default fp(async function configSwagger(app: FastifyInstance) {
                     },
                 },
             },
-            // Apply auth globally (can override per-route)
             security: [{ userIdHeader: [] }],
         },
     });
 
-    // Serves the Swagger UI
+    // serve swagger ui
     await app.register(swaggerUI, {
         routePrefix: '/docs',
         staticCSP: true,
@@ -40,7 +35,4 @@ export default fp(async function configSwagger(app: FastifyInstance) {
             deepLinking: true,
         },
     });
-
-    // Optional: nice for debugging / linking
-    app.get('/docs/openapi.json', async () => app.swagger());
 });

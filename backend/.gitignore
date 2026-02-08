@@ -66,5 +66,5 @@ test/types/index.js
 # compiled app
 dist
 
-/src/generated/prisma
-/generated/prisma
+# /src/generated/prisma
+# /generated/prisma

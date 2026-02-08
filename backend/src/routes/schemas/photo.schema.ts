@@ -15,7 +15,7 @@ export const idParamSchema = {
     },
 };
 
-const photoPayloadSchema = {
+export const photoPayloadSchema = {
     type: 'object',
     properties: {
         id: { type: 'string' },

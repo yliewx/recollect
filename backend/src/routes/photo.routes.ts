@@ -2,12 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { PhotoModel } from '@/models/photo.model.js';
 import { PhotoController } from '@/controllers/photo.controller.js';
 import userContext from '@/plugins/user.context.js';
-import { TagService } from '@/services/tag.service.js';
-import { CaptionService } from '@/services/caption.service.js';
-import { CacheService } from '@/services/cache.service.js';
-import { SearchService } from '@/services/search.service.js';
 import { Services } from '@/types/search.js';
-import { deletePhotoSchema, querySchema, updateCaptionSchema, updateTagsSchema, uploadPhotoSchema } from './schemas/photo.schema.js';
+import { deletePhotoSchema, querySchema, restorePhotoSchema, updateCaptionSchema, updateTagsSchema, uploadPhotoSchema } from './schemas/photo.schema.js';
 
 /* define query parameters and types
 eg.
@@ -79,6 +75,7 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
         // restore deleted photo
         app.patch<{ Params: { id: string } }>(
             '/photos/:id/restore',
+            { schema: restorePhotoSchema },
             photoController.restore.bind(photoController)
         );
     });

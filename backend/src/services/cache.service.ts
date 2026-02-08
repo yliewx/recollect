@@ -2,7 +2,6 @@ import { FastifyRedis } from '@fastify/redis';
 import crypto from 'crypto';
 import { normalizeTags } from './tag.service.js';
 import { normalizeCaption } from './caption.service.js';
-import { Photo } from '@/types/models.js';
 import { PhotoPayload } from '@/models/photo.model.js';
 import chalk from 'chalk';
 import { Cursor } from './paginate.utils.js';
@@ -347,8 +346,6 @@ export class CacheService {
         if (id !== undefined) {
             // find cursor position
             const cursorScore = await this.redis.zscore(key, id.toString());
-
-            console.log('[caption] cursor score:', cursorScore);
             
             // cursor not found: fallback to db
             if (cursorScore === null) return null;

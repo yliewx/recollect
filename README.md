@@ -7,18 +7,14 @@ Ensure the following tools are installed on your system:
 - Git
 
 ### How to run
-1. Create a `.env` file at the project root
+1. Create a `.env` file at the project root (based on the `.env.sample`)
 2. Start all services:
 ```bash
 make
 ```
-- OR run tests in development mode:
+3. View the Swagger UI here:
 ```bash
-make test
-```
-- view test output:
-```bash
-docker logs backend
+http://localhost:3000/docs
 ```
 
 ## Project Structure

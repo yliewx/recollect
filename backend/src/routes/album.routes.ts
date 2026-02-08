@@ -3,68 +3,8 @@ import { AlbumModel } from '@/models/album.model.js';
 import { AlbumController } from '@/controllers/album.controller.js';
 import userContext from '@/plugins/user.context.js';
 import { PhotoModel } from '@/models/photo.model.js';
-import { TagService } from '@/services/tag.service.js';
-import { CaptionService } from '@/services/caption.service.js';
-import { CacheService } from '@/services/cache.service.js';
 import { Services } from '@/types/search.js';
-
-const querySchema = {
-    querystring: {
-        type: 'object',
-        properties: {
-            tag: { type: 'string' },
-            caption: { type: 'string' },
-            match: {
-                type: 'string',
-                enum: ['any', 'all'],
-                default: 'any',
-            },
-            limit: {
-                type: 'integer',
-                minimum: 1,
-                maximum: 50,
-                default: 20,
-            },
-            cursor_rank: { type: 'number' }, // only applicable for caption FTS
-            cursor_id: { type: 'string' },
-        },
-    }
-};
-
-const deleteAlbumPhotosSchema = {
-    body: {
-        type: 'object',
-        properties: {
-            photo_ids: {
-                type: 'array',
-                items: {
-                    type: 'string',
-                    minLength: 1,
-                    maxLength: 20,
-                },
-                minItems: 1,
-                maxItems: 100,
-            },
-        },
-        required: ['photo_ids'],
-        additionalProperties: false,
-    },
-};
-
-const renameAlbumSchema = {
-    body: {
-        type: 'object',
-        properties: {
-            title: {
-                type: 'string',
-                minLength: 1,
-                maxLength: 30,
-            },
-        },
-        required: ['title'],
-        additionalProperties: false,
-    },
-};
+import { addAlbumPhotosSchema, createAlbumSchema, deleteAlbumPhotosSchema, deleteAlbumSchema, listAlbumsSchema, queryAlbumSchema, renameAlbumSchema, restoreAlbumSchema } from './schemas/album.schema.js';
 
 export async function albumRoutes(app: FastifyInstance, services: Services) {
     const {
@@ -88,21 +28,28 @@ export async function albumRoutes(app: FastifyInstance, services: Services) {
         app.register(userContext);
 
         // get all albums belonging to user
-        app.get('/albums', albumController.findAllFromUser.bind(albumController));
+        app.get('/albums',
+            { schema: listAlbumsSchema },
+            albumController.findAllFromUser.bind(albumController)
+        );
 
         // create albums
-        app.post('/albums', albumController.create.bind(albumController));
+        app.post('/albums',
+            { schema: createAlbumSchema },
+            albumController.create.bind(albumController)
+        );
 
         // get all photos in an album
         app.get<{ Params: { id: string } }>(
             '/albums/:id/photos',
-            { schema: querySchema },
+            { schema: queryAlbumSchema },
             albumController.findAllPhotosFromAlbum.bind(albumController)
         );
         
         // add photos to an album
         app.post<{ Params: { id: string } }>(
             '/albums/:id/photos',
+            { schema: addAlbumPhotosSchema },
             albumController.addPhotos.bind(albumController)
         );
 
@@ -116,12 +63,14 @@ export async function albumRoutes(app: FastifyInstance, services: Services) {
         // delete album
         app.delete<{ Params: { id: string } }>(
             '/albums/:id',
+            { schema: deleteAlbumSchema },
             albumController.delete.bind(albumController)
         );
 
         // restore deleted album
         app.patch<{ Params: { id: string } }>(
             '/albums/:id/restore',
+            { schema: restoreAlbumSchema },
             albumController.restore.bind(albumController)
         );
 

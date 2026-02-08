@@ -113,21 +113,6 @@ export class PhotoController {
         }
     }
 
-    // // GET /photos/:id
-    // async findPhotoById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
-    //     const user_id = request.user.id;
-    //     const photo_id = parseBigInt(request.params.id, 'photo_id');
-
-    //     try {
-    //         // check cache
-    //         const photo = await this.searchService.resolveIdsToPhotos(user_id, [photo_id]);
-    //         return reply.status(200).send({ photo_id });
-    //     } catch (err) {
-    //         console.error('Error in PhotoController.updateCaption:', err);
-    //         return reply.sendError(err);
-    //     }
-    // }
-
     // PATCH /photos/:id/tags
     /*
     1. normalize input

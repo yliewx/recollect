@@ -73,47 +73,7 @@ export class PhotoModel {
         
         return { photoIds, nextCursor };
     }
-    // async findAllFromUser(
-    //     user_id: bigint,
-    //     cursor?: bigint,
-    //     take = 20,
-    //     album_id?: bigint
-    // ): Promise<{ photos: PhotoPayload[], nextCursor: bigint | null }> {
-    //     const result = await paginateFindMany<PhotoWithMetadata>(this.prisma.photos, {
-    //         ...buildCursorOptions(cursor),
-    //         take,
-    //         where: {
-    //             user_id,
-    //             deleted_at: null,
-    //             ...(album_id !== undefined ? this.filterByAlbum(album_id, user_id) : {})
-    //         },
-    //         include: {
-    //             captions: { select: { caption: true } }, // only caption text
-    //             photo_tags: {
-    //                 include: { tags: { select: { tag_name: true } } }, // only tag names
-    //             },
-    //         },
-    //         orderBy: [{ uploaded_at: 'desc' }, { id: 'desc' }],
-    //     });
-
-    //     const photos: PhotoPayload[] = result.map(p => ({
-    //         id: p.id,
-    //         user_id: p.user_id,
-    //         file_path: p.file_path,
-    //         uploaded_at: p.uploaded_at,
-    //         deleted_at: p.deleted_at,
-    //         caption: p.captions?.caption ?? null,
-    //         tags: p.photo_tags?.map(pt => pt.tags.tag_name) ?? [],
-    //     }));
-
-    //     // get next cursor: bookmark the last id in the result set
-    //     const nextCursor = (photos.length > 0)
-    //         ? photos[photos.length - 1].id
-    //         : null;
-        
-    //     return { photos, nextCursor };
-    // }
-
+    
     // helper function for finding photos in album
     private filterByAlbum(album_id: bigint, user_id: bigint) {
         return {

@@ -26,7 +26,6 @@ export default fp(async function setBigIntHandler(app: FastifyInstance) {
 /**============================================
  *           HELPERS FOR PARSING
  *=============================================**/
-
 // check if a string contains only digits
 function isNumeric(str: string): boolean {
     return /^\d+$/.test(str);

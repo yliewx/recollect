@@ -8,6 +8,7 @@ import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
 import { CacheService } from '@/services/cache.service.js';
 import { SearchService } from '@/services/search.service.js';
 import { buildCursor } from '@/services/paginate.utils.js';
+import { mapPhotosToUrls } from '@/services/photo.upload.js';
 
 export class AlbumController {
     constructor(
@@ -102,7 +103,7 @@ export class AlbumController {
 
         try {
             const { photos, nextCursor } = await this.searchService.searchPhotos(user_id, searchQuery);
-            return reply.status(200).send({ photos, nextCursor });
+            return reply.status(200).send({ photos: mapPhotosToUrls(photos), nextCursor });
         } catch (err) {
             console.error('Error in AlbumController.findAllPhotosFromAlbum:', err);
             return reply.sendError(err);
@@ -175,7 +176,7 @@ export class AlbumController {
         try {
             const album = await this.albumModel.restore(album_id, user_id);
 
-            return reply.status(200).send({ album });
+            return reply.status(200).send({ success: true });
         } catch (err) {
             console.error('Error in AlbumController.restore:', err);
             return reply.sendError(err);
