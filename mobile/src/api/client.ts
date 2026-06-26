@@ -7,7 +7,19 @@ export const API_BASE_URL =
 
 // TODO: replace with the real authenticated user id once a signup/login flow exists.
 // The backend currently identifies users via the x-user-id header (no auth yet).
-const DEV_USER_ID = process.env.EXPO_PUBLIC_USER_ID ?? '1';
+// Set by useBootstrapUser on app start, before any screen can issue a request.
+let currentUserId: string | undefined;
+
+export function setCurrentUserId(id: string): void {
+  currentUserId = id;
+}
+
+function getCurrentUserId(): string {
+  if (!currentUserId) {
+    throw new Error('No current user set. App should call setCurrentUserId before rendering screens.');
+  }
+  return currentUserId;
+}
 
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
@@ -41,7 +53,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       method,
       headers: {
         'Content-Type': 'application/json',
-        'x-user-id': DEV_USER_ID,
+        'x-user-id': getCurrentUserId(),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });

@@ -1,6 +1,6 @@
 # Recollect
 
-A web-based **photo organizer application** that allows users to organize, search, and manage photo collections by tags and captions. It is designed for efficient querying at scale, supporting cursor-based pagination and full-text search.
+A **photo organiser application** that allows users to organize, search, and manage photo collections by tags and captions. It is designed for efficient querying at scale, supporting cursor-based pagination and full-text search. The mobile client (React Native/Expo) references photos by their local device asset identifier rather than uploading files; the backend stores metadata (captions, tags, albums) without accessing the actual image bytes.
 
 ## Instructions
 
@@ -9,8 +9,10 @@ Ensure the following tools are installed on your system:
 - Docker
 - Docker Compose
 - Git
+- Node.js (for the mobile client)
+- Xcode + iOS Simulator (for running the mobile client on iOS)
 
-### How to run
+### Running the backend
 1. Create a `.env` file at the project root (based on the `.env.sample`)
 2. Start all services:
 ```bash
@@ -21,6 +23,16 @@ make
 ```bash
 http://localhost:3000/docs
 ```
+
+### Running the mobile client
+
+```bash
+cd mobile
+npm install
+npm run ios
+```
+
+On first launch: grant photo library access, then use "Import Photos" to register a few photos from the device's library before the Library screen will show anything.
 
 ## Project Structure
 ```bash
@@ -44,19 +56,33 @@ http://localhost:3000/docs
 │   │   └── types/
 │   ├── test/ # unit tests
 │   └── tsconfig.json
+├── mobile/ # React Native (Expo) mobile client
+│   ├── App.tsx # entrypoint
+│   ├── app.json
+│   ├── package.json
+│   └── src/
+│       ├── api/ # typed backend client (client.ts, photos.ts, users.ts, types.ts)
+│       ├── components/
+│       ├── hooks/
+│       ├── navigation/
+│       ├── screens/
+│       └── theme/
 ├── docker-compose.dev.yml # for testing
 ├── docker-compose.yml # production mode
 └── postgres/
-    └── init/ # contains files for initialising database
-        ├── schema.sql
-        └── seeds.sql
+    └── init/ # contains files for initialising database, run in order
+        ├── 001_pg_stat_statements.sql
+        ├── 01_schema.sql
+        ├── 02_triggers.sql
+        ├── 03_seeds_bulk.sql
+        └── 04_seeds.sql
 ```
 
 ## Core Features
 
-- **Photo storage**
-  - Photos are saved to the filesystem under unique filenames (UUIDs)
-  - File paths are stored in the database and served via generated URLs
+- **Photo registration**
+  - Photos are referenced by the device's local asset identifier (e.g. iOS `PHAsset` id), not uploaded
+  - Single-device prototype scope: an `asset_id` only resolves on the device it was registered from
 
 - **Album management**
   - Create, rename, delete, and restore deleted albums
@@ -82,6 +108,7 @@ http://localhost:3000/docs
 - Fastify + Prisma
 - Swagger UI
 - Docker Compose
+- React Native + Expo (mobile client)
 
 ---
 
@@ -115,7 +142,7 @@ http://localhost:3000/docs
 
 | Method | Endpoint | Description |
 |------|--------|------------|
-| POST | `/photos` | Upload one or more photos |
+| POST | `/photos` | Register one or more photos by local device `asset_id` |
 | GET | `/photos` | List photos (supports filtering & search) |
 | DELETE | `/photos/:id` | Soft-delete a photo |
 | PATCH | `/photos/:id/restore` | Restore a deleted photo |
@@ -124,18 +151,21 @@ http://localhost:3000/docs
 
 ---
 
-## Uploading Photos
+## Registering Photos
 
-Photos are uploaded using `multipart/form-data`.
+Photos are registered by local device `asset_id`, not uploaded.
 
-- Supports multiple files per request
-- Optional metadata (caption + tags) is provided as a JSON string
-- Metadata must match the order of uploaded files
+- Supports multiple assets per request
+- Each item can optionally include a caption and tags
+- Already-registered `asset_id`s for the user are skipped, not duplicated
 
-Example metadata payload:
+Example request body:
 
 ```json
-[
-  { "caption": "Sunset at the beach", "tags": ["sunset", "travel"] },
-  { "caption": "City skyline", "tags": ["city", "night"] }
-]
+{
+  "items": [
+    { "asset_id": "48F3C1B2-...-IMG_0421.HEIC/L0/001", "caption": "Sunset at the beach", "tags": ["sunset", "travel"] },
+    { "asset_id": "9A21EE4F-...-IMG_0422.HEIC/L0/001", "caption": "City skyline", "tags": ["city", "night"] }
+  ]
+}
+```

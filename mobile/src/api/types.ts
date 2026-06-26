@@ -59,3 +59,14 @@ export type UpdateTagsResponse = {
   photo_id: string;
   tags: string[];
 };
+
+export type User = {
+  id: string;
+  username: string;
+  email: string;
+  created_at: string;
+};
+
+export type CreateUserResponse = {
+  user: User;
+};
