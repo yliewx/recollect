@@ -1,11 +1,11 @@
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { LibraryScreen } from './src/screens/LibraryScreen';
+import { AppNavigator } from './src/navigation/AppNavigator';
 
 export default function App() {
   return (
     <SafeAreaProvider>
-      <LibraryScreen />
+      <AppNavigator />
       <StatusBar style="auto" />
     </SafeAreaProvider>
   );

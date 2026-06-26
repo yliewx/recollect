@@ -1,23 +1,53 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect, useState } from 'react';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { usePhotoLibrary } from '../hooks/usePhotoLibrary';
-import { PhotoGrid } from '../components/PhotoGrid';
+import { usePhotos } from '../hooks/usePhotos';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { SyncedPhotoGrid } from '../components/SyncedPhotoGrid';
+import { SearchBar } from '../components/SearchBar';
 import { LoadingState } from '../components/LoadingState';
 import { EmptyState } from '../components/EmptyState';
 import { colors, spacing, typography } from '../theme';
+import type { RootStackParamList } from '../navigation/types';
 
-export function LibraryScreen() {
-  const {
-    permission,
-    canAskAgain,
-    assets,
-    loadState,
-    isFetchingMore,
-    requestPermission,
-    fetchNextPage,
-    refresh,
-    presentLimitedLibraryPicker,
-  } = usePhotoLibrary();
+type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
+
+const DEBOUNCE_MS = 300;
+
+export function LibraryScreen({ navigation }: Props) {
+  const { permission, canAskAgain, requestPermission } = usePhotoLibrary();
+
+  const [captionQuery, setCaptionQuery] = useState('');
+  const [tagQuery, setTagQuery] = useState('');
+  const debouncedCaption = useDebouncedValue(captionQuery, DEBOUNCE_MS);
+  const debouncedTag = useDebouncedValue(tagQuery, DEBOUNCE_MS);
+  const hasActiveFilters = captionQuery.trim() !== '' || tagQuery.trim() !== '';
+
+  const { photos, loadState, isFetchingMore, fetchNextPage, refresh } = usePhotos({
+    caption: debouncedCaption,
+    tag: debouncedTag,
+  });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable accessibilityRole="button" accessibilityLabel="Add photos" onPress={() => navigation.navigate('Import')}>
+          <Text style={styles.headerAction}>Add Photos</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
+  // refetch the registered photo list whenever this screen regains focus
+  // (e.g. after returning from the import picker)
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   if (permission === 'undetermined') {
     return (
@@ -65,7 +95,7 @@ export function LibraryScreen() {
     );
   }
 
-  if (loadState.status === 'loading' && assets.length === 0) {
+  if (loadState.status === 'loading' && photos.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <LoadingState message="Loading your photos…" />
@@ -84,26 +114,67 @@ export function LibraryScreen() {
     );
   }
 
+  if (photos.length === 0 && !hasActiveFilters) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <EmptyState title="No photos yet" message="Import photos from your library to get started." />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Import photos"
+          style={styles.button}
+          onPress={() => navigation.navigate('Import')}
+        >
+          <Text style={styles.buttonText}>Import Photos</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  const filterBar = (
+    <View style={styles.filterBar}>
+      <SearchBar value={captionQuery} onChangeText={setCaptionQuery} />
+      <TextInput
+        style={styles.tagInput}
+        value={tagQuery}
+        onChangeText={setTagQuery}
+        placeholder="Filter by tags (comma-separated)…"
+        placeholderTextColor={colors.textSecondary}
+        autoCapitalize="none"
+        accessibilityLabel="Filter by tags"
+      />
+    </View>
+  );
+
+  if (photos.length === 0) {
+    return (
+      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+        {filterBar}
+        <EmptyState title="No matches" message="Try a different search or tag filter." />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Clear filters"
+          style={styles.button}
+          onPress={() => {
+            setCaptionQuery('');
+            setTagQuery('');
+          }}
+        >
+          <Text style={styles.buttonText}>Clear Filters</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      {permission === 'limited' && (
-        <View style={styles.limitedBanner}>
-          <Text style={styles.limitedText}>You've given access to a limited selection of photos.</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Select more photos"
-            onPress={presentLimitedLibraryPicker}
-          >
-            <Text style={styles.limitedAction}>Select More</Text>
-          </Pressable>
-        </View>
-      )}
-      <PhotoGrid
-        assets={assets}
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      {filterBar}
+      <SyncedPhotoGrid
+        photos={photos}
         isRefreshing={loadState.status === 'loading'}
         isFetchingMore={isFetchingMore}
         onRefresh={refresh}
         onLoadMore={fetchNextPage}
+        onPressPhoto={(photo) => navigation.navigate('PhotoDetail', { photo })}
       />
     </SafeAreaView>
   );
@@ -113,6 +184,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  filterBar: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  tagInput: {
+    ...typography.body,
+    color: colors.text,
+    backgroundColor: colors.surface,
+    borderRadius: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   permissionPrompt: {
     flex: 1,
@@ -147,22 +231,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
-  limitedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-  },
-  limitedText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  limitedAction: {
-    ...typography.caption,
+  headerAction: {
+    ...typography.body,
     color: colors.accent,
     fontWeight: '600',
   },

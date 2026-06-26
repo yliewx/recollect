@@ -21,22 +21,23 @@ export class PhotoModel {
     // bulk inserts
     async uploadMany(
         user_id: bigint,
-        filenames: string[],
+        assetIds: string[],
         tx?: Prisma.TransactionClient
     ): Promise<Photo[]> {
         const prisma = tx ?? this.prisma;
-    
+
         await prisma.photos.createMany({
-            data: filenames.map(filename => ({
+            data: assetIds.map(asset_id => ({
                 user_id,
-                filename,
+                asset_id,
             })),
+            skipDuplicates: true,
         });
 
         return await prisma.photos.findMany({
             where: {
                 user_id,
-                filename: { in: filenames },
+                asset_id: { in: assetIds },
                 deleted_at: null
             },
             orderBy: { uploaded_at: 'desc' },
@@ -127,7 +128,7 @@ export class PhotoModel {
         const photos: PhotoPayload[] = result.map(p => ({
             id: p.id,
             user_id: p.user_id,
-            filename: p.filename,
+            asset_id: p.asset_id,
             uploaded_at: p.uploaded_at,
             deleted_at: p.deleted_at,
             caption: p.captions?.caption ?? null,
@@ -213,7 +214,7 @@ export class PhotoModel {
         const photos: PhotoPayload[] = result.map(p => ({
             id: p.id,
             user_id: p.user_id,
-            filename: p.filename,
+            asset_id: p.asset_id,
             uploaded_at: p.uploaded_at,
             deleted_at: p.deleted_at,
             caption: p.captions?.caption ?? null,

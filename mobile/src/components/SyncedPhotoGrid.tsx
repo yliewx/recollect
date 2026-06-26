@@ -1,52 +1,44 @@
 import { ActivityIndicator, Dimensions, FlatList, RefreshControl, StyleSheet } from 'react-native';
-import type * as MediaLibrary from 'expo-media-library/legacy';
-import { PhotoCard } from './PhotoCard';
+import { SyncedPhotoCard } from './SyncedPhotoCard';
 import { EmptyState } from './EmptyState';
 import { colors, spacing } from '../theme';
+import type { Photo } from '../api/types';
 
 const NUM_COLUMNS = 3;
 const GUTTER = spacing.xs;
 const ITEM_SIZE = (Dimensions.get('window').width - GUTTER * (NUM_COLUMNS + 1)) / NUM_COLUMNS;
 
 type Props = {
-  assets: MediaLibrary.Asset[];
+  photos: Photo[];
   isRefreshing: boolean;
   isFetchingMore: boolean;
   onRefresh: () => void;
   onLoadMore: () => void;
-  // when provided, the grid renders in selection mode (see PhotoCard)
-  selectedIds?: Set<string>;
-  onToggleSelect?: (assetId: string) => void;
+  onPressPhoto?: (photo: Photo) => void;
 };
 
-export function PhotoGrid({
-  assets,
+export function SyncedPhotoGrid({
+  photos,
   isRefreshing,
   isFetchingMore,
   onRefresh,
   onLoadMore,
-  selectedIds,
-  onToggleSelect,
+  onPressPhoto,
 }: Props) {
   return (
     <FlatList
-      data={assets}
-      keyExtractor={(asset) => asset.id}
+      data={photos}
+      keyExtractor={(photo) => photo.id}
       numColumns={NUM_COLUMNS}
       contentContainerStyle={styles.content}
       columnWrapperStyle={styles.row}
       renderItem={({ item }) => (
-        <PhotoCard
-          asset={item}
-          size={ITEM_SIZE}
-          selected={selectedIds?.has(item.id)}
-          onPress={onToggleSelect ? () => onToggleSelect(item.id) : undefined}
-        />
+        <SyncedPhotoCard photo={item} size={ITEM_SIZE} onPress={onPressPhoto ? () => onPressPhoto(item) : undefined} />
       )}
       onEndReachedThreshold={0.5}
       onEndReached={onLoadMore}
       refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
-      ListEmptyComponent={<EmptyState title="No photos found" message="Photos from your library will appear here." />}
+      ListEmptyComponent={<EmptyState title="No photos yet" message="Import photos to get started." />}
       ListFooterComponent={isFetchingMore ? <ActivityIndicator style={styles.footer} color={colors.accent} /> : null}
     />
   );

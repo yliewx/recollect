@@ -35,12 +35,14 @@ CREATE TABLE IF NOT EXISTS albums (
 CREATE TABLE IF NOT EXISTS photos (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    filename TEXT NOT NULL,
+    asset_id TEXT NOT NULL,
     uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
 
     CONSTRAINT photos_deleted_at
-        CHECK (deleted_at IS NULL OR deleted_at >= uploaded_at)
+        CHECK (deleted_at IS NULL OR deleted_at >= uploaded_at),
+    CONSTRAINT users_photos_asset_unique
+        UNIQUE (user_id, asset_id)
 );
 
 -- -------------------------------------

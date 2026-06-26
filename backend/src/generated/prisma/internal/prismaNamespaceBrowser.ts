@@ -115,7 +115,7 @@ export type Photo_tagsScalarFieldEnum = (typeof Photo_tagsScalarFieldEnum)[keyof
 export const PhotosScalarFieldEnum = {
   id: 'id',
   user_id: 'user_id',
-  filename: 'filename',
+  asset_id: 'asset_id',
   uploaded_at: 'uploaded_at',
   deleted_at: 'deleted_at'
 } as const

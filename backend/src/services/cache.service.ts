@@ -8,7 +8,7 @@ import { Cursor } from './paginate.utils.js';
 
 export interface CachedPhoto {
     user_id: string;
-    filename: string;
+    asset_id: string;
     caption: string | null;
     tags: string | null;
     uploaded_at: string;
@@ -89,7 +89,7 @@ export class CacheService {
             // convert each field value to string
             pipeline.hset(photoKey, {
                 user_id: data.user_id.toString(),
-                filename: data.filename,
+                asset_id: data.asset_id,
                 caption: data.caption ?? '',
                 tags: data.tags?.join(',') ?? '',
                 uploaded_at: data.uploaded_at.toISOString(),
@@ -127,7 +127,7 @@ export class CacheService {
                 photoMap.set(photo_ids[i], {
                     id: photo_ids[i],
                     user_id: BigInt(data.user_id),
-                    filename: data.filename,
+                    asset_id: data.asset_id,
                     caption: data.caption || null,
                     tags: data.tags ? data.tags.split(',').filter(Boolean) : [],
                     uploaded_at: new Date(data.uploaded_at),
