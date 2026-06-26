@@ -37,10 +37,10 @@ export function assertPhotoUpload(response: any, uploadsDir: string, photoIds: s
     // check that each image was saved to /uploads
     for (const photo of body.photos) {
         expect(photo).to.have.property('id');
-        expect(photo).to.have.property('filename');
+        expect(photo).to.have.property('asset_id');
         expect(
             fs.existsSync(
-                path.join(uploadsDir, photo.)
+                path.join(uploadsDir, photo.asset_id)
             )
         ).to.be.true;
 

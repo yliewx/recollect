@@ -42,13 +42,10 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
             photoController.findAllFromUser.bind(photoController)
         );
 
-        // upload photos
+        // register local device assets
         app.post('/photos',
-            {
-                validatorCompiler: () => { return data => data; },
-                schema: uploadPhotoSchema
-            },
-            photoController.upload.bind(photoController)
+            { schema: uploadPhotoSchema },
+            photoController.register.bind(photoController)
         );
 
         // update photo tags

@@ -1,9 +1,8 @@
 import { PhotoModel } from '@/models/photo.model.js';
-import { mapPhotosToUrls, uploadPhotos } from '@/services/photo.upload.js';
+import { PhotoData, InsertedPhotoData /*, uploadPhotos */ } from '@/services/photo.upload.js';
 import { TagService, normalizeTags } from '@/services/tag.service.js';
 import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { FastifyReply, FastifyRequest } from "fastify";
-import { PhotoData, InsertedPhotoData } from '@/services/photo.upload.js';
 import { PrismaClient } from '@/generated/prisma/client.js';
 import { parseBigInt } from '@/plugins/bigint.handler.js';
 import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';
@@ -23,39 +22,32 @@ export class PhotoController {
     ) {}
 
     // POST /photos
-    async upload(request: FastifyRequest, reply: FastifyReply) {
+    // registers local device asset_ids (single-device prototype scope, no file upload)
+    async register(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
+        const { items } = request.body as { items: PhotoData[] };
+
+        if (!items?.length) {
+            return reply.sendError('No assets provided');
+        }
 
         try {
-            // validate and write images to uploads directory
-            const photoData: PhotoData[] = await uploadPhotos(request);
-            if (photoData.length === 0) {
-                throw new Error('No images uploaded');
-            }
-
             const result = await this.prisma.$transaction(async (tx) => {
-                // bulk insert into photos table
-                const filenames = photoData.map(photo => photo.filename);
-                const newPhotos = await this.photoModel.uploadMany(user_id, filenames, tx);
-                if (newPhotos.length !== photoData.length) {
-                    throw new Error('Failed to upload all images');
-                }
+                // bulk insert into photos table (existing asset_ids for this user are skipped)
+                const assetIds = items.map(item => item.asset_id);
+                const newPhotos = await this.photoModel.uploadMany(user_id, assetIds, tx);
 
-                const fileNameToPhotoId = new Map(newPhotos.map(p => [p.filename, p.id]));
+                const assetIdToPhotoId = new Map(newPhotos.map(p => [p.asset_id, p.id]));
 
-                const insertedPhotoData = photoData.map(photo => {
-                    const photo_id = fileNameToPhotoId.get(photo.filename);
-                    if (!photo_id) {
-                        throw new Error('Photo ID missing');
-                    }
-                    return { ...photo, photo_id };
-                });
+                const insertedPhotoData: InsertedPhotoData[] = items
+                    .filter(item => assetIdToPhotoId.has(item.asset_id))
+                    .map(item => ({ ...item, photo_id: assetIdToPhotoId.get(item.asset_id)! }));
                 debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
 
                 // insert tags and photo_tags
                 const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
                 if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
-                
+
                 // insert captions
                 const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
                 if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
@@ -68,11 +60,64 @@ export class PhotoController {
             // store new photo data in cache
             await this.cache.cachePhotos(result);
 
-            return reply.status(201).send({ photos: mapPhotosToUrls(result), count: result.length });
+            return reply.status(201).send({ photos: result, count: result.length });
         } catch (err) {
-            console.error('Error in PhotoController.upload:', err);
+            console.error('Error in PhotoController.register:', err);
             return reply.sendError(err);
         }
+    }
+
+    // superseded multipart upload logic, kept below for reference
+    private async _legacyUpload(request: FastifyRequest, reply: FastifyReply) {
+        // const user_id = request.user.id;
+
+        // try {
+        //     // validate and write images to uploads directory
+        //     const photoData: PhotoData[] = await uploadPhotos(request);
+        //     if (photoData.length === 0) {
+        //         throw new Error('No images uploaded');
+        //     }
+
+        //     const result = await this.prisma.$transaction(async (tx) => {
+        //         // bulk insert into photos table
+        //         const filenames = photoData.map(photo => photo.filename);
+        //         const newPhotos = await this.photoModel.uploadMany(user_id, filenames, tx);
+        //         if (newPhotos.length !== photoData.length) {
+        //             throw new Error('Failed to upload all images');
+        //         }
+
+        //         const fileNameToPhotoId = new Map(newPhotos.map(p => [p.filename, p.id]));
+
+        //         const insertedPhotoData = photoData.map(photo => {
+        //             const photo_id = fileNameToPhotoId.get(photo.filename);
+        //             if (!photo_id) {
+        //                 throw new Error('Photo ID missing');
+        //             }
+        //             return { ...photo, photo_id };
+        //         });
+        //         debugPrintNested(insertedPhotoData, 'Inserted Photo Data');
+
+        //         // insert tags and photo_tags
+        //         const insertedTags = await this.tagService.addPhotoTags(insertedPhotoData, user_id, tx);
+        //         if (insertedTags) debugPrintNested(insertedTags, 'Inserted Tags');
+
+        //         // insert captions
+        //         const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
+        //         if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
+
+        //         // return photo with structured metadata
+        //         return await this.photoModel.findByIds(newPhotos.map(p => p.id), user_id, tx);
+        //     });
+
+        //     debugPrintNested(result, 'testing result');
+        //     // store new photo data in cache
+        //     await this.cache.cachePhotos(result);
+
+        //     return reply.status(201).send({ photos: mapPhotosToUrls(result), count: result.length });
+        // } catch (err) {
+        //     console.error('Error in PhotoController.upload:', err);
+        //     return reply.sendError(err);
+        // }
     }
 
     // GET /photos
@@ -106,7 +151,7 @@ export class PhotoController {
         try {
             const { photos, nextCursor } = await this.searchService.searchPhotos(user_id, searchQuery);
 
-            return reply.status(200).send({ photos: mapPhotosToUrls(photos), nextCursor });
+            return reply.status(200).send({ photos, nextCursor });
         } catch (err) {
             console.error('Error in PhotoController.findAllFromUser:', err);
             return reply.sendError(err);
@@ -187,7 +232,7 @@ export class PhotoController {
         try {
             const newCaption = await this.captionService.updateCaption(photo_id, caption);
             await this.cache.invalidatePhotos([photo_id]);
-            return reply.status(200).send({ photo_id, caption: newCaption });
+            return reply.status(200).send({ photo_id, caption: newCaption.caption });
         } catch (err) {
             console.error('Error in PhotoController.updateCaption:', err);
             return reply.sendError(err);

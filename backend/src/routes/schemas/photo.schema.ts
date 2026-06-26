@@ -20,14 +20,13 @@ export const photoPayloadSchema = {
     properties: {
         id: { type: 'string' },
         user_id: { type: 'string' },
-        filename: { type: 'string' },
+        asset_id: { type: 'string' },
         uploaded_at: { type: 'string' },
         deleted_at: { anyOf: [{ type: 'string' }, { type: 'null' }] },
         caption: { anyOf: [{ type: 'string' }, { type: 'null' }] },
         tags: { type: 'array', items: { type: 'string' } },
-        url: { type: 'string', format: 'uri' }, // image url for display
     },
-    required: ['id', 'url', 'uploaded_at'],
+    required: ['id', 'uploaded_at'],
     additionalProperties: false,
 };
 
@@ -36,46 +35,37 @@ export const photoPayloadSchema = {
  *=============================================**/
 export const uploadPhotoSchema = {
     tags: ['Photos'],
-    summary: 'Upload photos',
-    description: 'Upload one or more photos using multipart/form-data',
+    summary: 'Register photos from the device photo library',
+    description: 'Register one or more photos by local device asset_id (no file upload; single-device prototype scope)',
     security: [{ userIdHeader: [] }],
-    consumes: ['multipart/form-data'],
     body: {
         type: 'object',
         properties: {
-            files: {
-                description: 'Photo files to upload (max 10 files). Must be in the same order as `metadata`.',
+            items: {
+                description: 'Assets to register. Already-registered asset_ids for this user are skipped.',
                 type: 'array',
-                items: { type: 'string', format: 'binary' },
-            },
-            metadata: {
-                type: 'string',
-                description: `
-                    JSON string representing metadata for each uploaded file.
-                    Must be an array with the same order as \`files\`.
-
-                    Example:
-                    [
-                        { "caption": "hello", "tags": ["tag_1","common"] },
-                        { "caption": "world", "tags": ["tag_2","common"] },
-                        { "caption": "cat", "tags": ["tag_3","pets","common"] }
-                    ]
-                `.trim(),
+                minItems: 1,
+                items: {
+                    type: 'object',
+                    properties: {
+                        asset_id: { type: 'string', description: 'Local device asset identifier (e.g. PHAsset localIdentifier)' },
+                        caption: { type: 'string', maxLength: 200 },
+                        tags: { type: 'array', items: { type: 'string', maxLength: 30 } },
+                    },
+                    required: ['asset_id'],
+                    additionalProperties: false,
+                },
                 examples: [
                     JSON.stringify(
-                        [{ caption: 'hello', tags: ['tag_1','common'] }],
-                        null,
-                        2
-                    ),
-                        JSON.stringify(
-                        [{ caption: 'world', tags: ['tag_2','common'] }],
+                        [{ asset_id: '48F3C1B2-...-IMG_0421.HEIC/L0/001', caption: 'hello', tags: ['tag_1', 'common'] }],
                         null,
                         2
                     ),
                 ],
             },
         },
-        required: ['files'],
+        required: ['items'],
+        additionalProperties: false,
     },
     response: {
         201: {
@@ -88,7 +78,7 @@ export const uploadPhotoSchema = {
             additionalProperties: false,
         },
     },
-} 
+}
 
 /**============================================
  *               DELETE /photos

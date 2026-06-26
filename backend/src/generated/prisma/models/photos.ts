@@ -39,7 +39,7 @@ export type PhotosSumAggregateOutputType = {
 export type PhotosMinAggregateOutputType = {
   id: bigint | null
   user_id: bigint | null
-  filename: string | null
+  asset_id: string | null
   uploaded_at: Date | null
   deleted_at: Date | null
 }
@@ -47,7 +47,7 @@ export type PhotosMinAggregateOutputType = {
 export type PhotosMaxAggregateOutputType = {
   id: bigint | null
   user_id: bigint | null
-  filename: string | null
+  asset_id: string | null
   uploaded_at: Date | null
   deleted_at: Date | null
 }
@@ -55,7 +55,7 @@ export type PhotosMaxAggregateOutputType = {
 export type PhotosCountAggregateOutputType = {
   id: number
   user_id: number
-  filename: number
+  asset_id: number
   uploaded_at: number
   deleted_at: number
   _all: number
@@ -75,7 +75,7 @@ export type PhotosSumAggregateInputType = {
 export type PhotosMinAggregateInputType = {
   id?: true
   user_id?: true
-  filename?: true
+  asset_id?: true
   uploaded_at?: true
   deleted_at?: true
 }
@@ -83,7 +83,7 @@ export type PhotosMinAggregateInputType = {
 export type PhotosMaxAggregateInputType = {
   id?: true
   user_id?: true
-  filename?: true
+  asset_id?: true
   uploaded_at?: true
   deleted_at?: true
 }
@@ -91,7 +91,7 @@ export type PhotosMaxAggregateInputType = {
 export type PhotosCountAggregateInputType = {
   id?: true
   user_id?: true
-  filename?: true
+  asset_id?: true
   uploaded_at?: true
   deleted_at?: true
   _all?: true
@@ -186,7 +186,7 @@ export type photosGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalA
 export type PhotosGroupByOutputType = {
   id: bigint
   user_id: bigint
-  filename: string
+  asset_id: string
   uploaded_at: Date
   deleted_at: Date | null
   _count: PhotosCountAggregateOutputType | null
@@ -217,7 +217,7 @@ export type photosWhereInput = {
   NOT?: Prisma.photosWhereInput | Prisma.photosWhereInput[]
   id?: Prisma.BigIntFilter<"photos"> | bigint | number
   user_id?: Prisma.BigIntFilter<"photos"> | bigint | number
-  filename?: Prisma.StringFilter<"photos"> | string
+  asset_id?: Prisma.StringFilter<"photos"> | string
   uploaded_at?: Prisma.DateTimeFilter<"photos"> | Date | string
   deleted_at?: Prisma.DateTimeNullableFilter<"photos"> | Date | string | null
   album_photos?: Prisma.Album_photosListRelationFilter
@@ -229,7 +229,7 @@ export type photosWhereInput = {
 export type photosOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   user_id?: Prisma.SortOrder
-  filename?: Prisma.SortOrder
+  asset_id?: Prisma.SortOrder
   uploaded_at?: Prisma.SortOrder
   deleted_at?: Prisma.SortOrderInput | Prisma.SortOrder
   album_photos?: Prisma.album_photosOrderByRelationAggregateInput
@@ -240,23 +240,24 @@ export type photosOrderByWithRelationInput = {
 
 export type photosWhereUniqueInput = Prisma.AtLeast<{
   id?: bigint | number
+  user_id_asset_id?: Prisma.photosUser_idAsset_idCompoundUniqueInput
   AND?: Prisma.photosWhereInput | Prisma.photosWhereInput[]
   OR?: Prisma.photosWhereInput[]
   NOT?: Prisma.photosWhereInput | Prisma.photosWhereInput[]
   user_id?: Prisma.BigIntFilter<"photos"> | bigint | number
-  filename?: Prisma.StringFilter<"photos"> | string
+  asset_id?: Prisma.StringFilter<"photos"> | string
   uploaded_at?: Prisma.DateTimeFilter<"photos"> | Date | string
   deleted_at?: Prisma.DateTimeNullableFilter<"photos"> | Date | string | null
   album_photos?: Prisma.Album_photosListRelationFilter
   captions?: Prisma.XOR<Prisma.CaptionsNullableScalarRelationFilter, Prisma.captionsWhereInput> | null
   photo_tags?: Prisma.Photo_tagsListRelationFilter
   users?: Prisma.XOR<Prisma.UsersScalarRelationFilter, Prisma.usersWhereInput>
-}, "id">
+}, "id" | "user_id_asset_id">
 
 export type photosOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   user_id?: Prisma.SortOrder
-  filename?: Prisma.SortOrder
+  asset_id?: Prisma.SortOrder
   uploaded_at?: Prisma.SortOrder
   deleted_at?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.photosCountOrderByAggregateInput
@@ -272,14 +273,14 @@ export type photosScalarWhereWithAggregatesInput = {
   NOT?: Prisma.photosScalarWhereWithAggregatesInput | Prisma.photosScalarWhereWithAggregatesInput[]
   id?: Prisma.BigIntWithAggregatesFilter<"photos"> | bigint | number
   user_id?: Prisma.BigIntWithAggregatesFilter<"photos"> | bigint | number
-  filename?: Prisma.StringWithAggregatesFilter<"photos"> | string
+  asset_id?: Prisma.StringWithAggregatesFilter<"photos"> | string
   uploaded_at?: Prisma.DateTimeWithAggregatesFilter<"photos"> | Date | string
   deleted_at?: Prisma.DateTimeNullableWithAggregatesFilter<"photos"> | Date | string | null
 }
 
 export type photosCreateInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosCreateNestedManyWithoutPhotosInput
@@ -291,7 +292,7 @@ export type photosCreateInput = {
 export type photosUncheckedCreateInput = {
   id?: bigint | number
   user_id: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosUncheckedCreateNestedManyWithoutPhotosInput
@@ -301,7 +302,7 @@ export type photosUncheckedCreateInput = {
 
 export type photosUpdateInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUpdateManyWithoutPhotosNestedInput
@@ -313,7 +314,7 @@ export type photosUpdateInput = {
 export type photosUncheckedUpdateInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   user_id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUncheckedUpdateManyWithoutPhotosNestedInput
@@ -324,14 +325,14 @@ export type photosUncheckedUpdateInput = {
 export type photosCreateManyInput = {
   id?: bigint | number
   user_id: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
 }
 
 export type photosUpdateManyMutationInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
@@ -339,7 +340,7 @@ export type photosUpdateManyMutationInput = {
 export type photosUncheckedUpdateManyInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   user_id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
@@ -349,10 +350,15 @@ export type PhotosScalarRelationFilter = {
   isNot?: Prisma.photosWhereInput
 }
 
+export type photosUser_idAsset_idCompoundUniqueInput = {
+  user_id: bigint | number
+  asset_id: string
+}
+
 export type photosCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   user_id?: Prisma.SortOrder
-  filename?: Prisma.SortOrder
+  asset_id?: Prisma.SortOrder
   uploaded_at?: Prisma.SortOrder
   deleted_at?: Prisma.SortOrder
 }
@@ -365,7 +371,7 @@ export type photosAvgOrderByAggregateInput = {
 export type photosMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   user_id?: Prisma.SortOrder
-  filename?: Prisma.SortOrder
+  asset_id?: Prisma.SortOrder
   uploaded_at?: Prisma.SortOrder
   deleted_at?: Prisma.SortOrder
 }
@@ -373,7 +379,7 @@ export type photosMaxOrderByAggregateInput = {
 export type photosMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   user_id?: Prisma.SortOrder
-  filename?: Prisma.SortOrder
+  asset_id?: Prisma.SortOrder
   uploaded_at?: Prisma.SortOrder
   deleted_at?: Prisma.SortOrder
 }
@@ -479,7 +485,7 @@ export type photosUncheckedUpdateManyWithoutUsersNestedInput = {
 
 export type photosCreateWithoutAlbum_photosInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   captions?: Prisma.captionsCreateNestedOneWithoutPhotosInput
@@ -490,7 +496,7 @@ export type photosCreateWithoutAlbum_photosInput = {
 export type photosUncheckedCreateWithoutAlbum_photosInput = {
   id?: bigint | number
   user_id: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   captions?: Prisma.captionsUncheckedCreateNestedOneWithoutPhotosInput
@@ -515,7 +521,7 @@ export type photosUpdateToOneWithWhereWithoutAlbum_photosInput = {
 
 export type photosUpdateWithoutAlbum_photosInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   captions?: Prisma.captionsUpdateOneWithoutPhotosNestedInput
@@ -526,7 +532,7 @@ export type photosUpdateWithoutAlbum_photosInput = {
 export type photosUncheckedUpdateWithoutAlbum_photosInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   user_id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   captions?: Prisma.captionsUncheckedUpdateOneWithoutPhotosNestedInput
@@ -535,7 +541,7 @@ export type photosUncheckedUpdateWithoutAlbum_photosInput = {
 
 export type photosCreateWithoutCaptionsInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosCreateNestedManyWithoutPhotosInput
@@ -546,7 +552,7 @@ export type photosCreateWithoutCaptionsInput = {
 export type photosUncheckedCreateWithoutCaptionsInput = {
   id?: bigint | number
   user_id: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosUncheckedCreateNestedManyWithoutPhotosInput
@@ -571,7 +577,7 @@ export type photosUpdateToOneWithWhereWithoutCaptionsInput = {
 
 export type photosUpdateWithoutCaptionsInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUpdateManyWithoutPhotosNestedInput
@@ -582,7 +588,7 @@ export type photosUpdateWithoutCaptionsInput = {
 export type photosUncheckedUpdateWithoutCaptionsInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   user_id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUncheckedUpdateManyWithoutPhotosNestedInput
@@ -591,7 +597,7 @@ export type photosUncheckedUpdateWithoutCaptionsInput = {
 
 export type photosCreateWithoutPhoto_tagsInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosCreateNestedManyWithoutPhotosInput
@@ -602,7 +608,7 @@ export type photosCreateWithoutPhoto_tagsInput = {
 export type photosUncheckedCreateWithoutPhoto_tagsInput = {
   id?: bigint | number
   user_id: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosUncheckedCreateNestedManyWithoutPhotosInput
@@ -627,7 +633,7 @@ export type photosUpdateToOneWithWhereWithoutPhoto_tagsInput = {
 
 export type photosUpdateWithoutPhoto_tagsInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUpdateManyWithoutPhotosNestedInput
@@ -638,7 +644,7 @@ export type photosUpdateWithoutPhoto_tagsInput = {
 export type photosUncheckedUpdateWithoutPhoto_tagsInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
   user_id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUncheckedUpdateManyWithoutPhotosNestedInput
@@ -647,7 +653,7 @@ export type photosUncheckedUpdateWithoutPhoto_tagsInput = {
 
 export type photosCreateWithoutUsersInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosCreateNestedManyWithoutPhotosInput
@@ -657,7 +663,7 @@ export type photosCreateWithoutUsersInput = {
 
 export type photosUncheckedCreateWithoutUsersInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
   album_photos?: Prisma.album_photosUncheckedCreateNestedManyWithoutPhotosInput
@@ -697,21 +703,21 @@ export type photosScalarWhereInput = {
   NOT?: Prisma.photosScalarWhereInput | Prisma.photosScalarWhereInput[]
   id?: Prisma.BigIntFilter<"photos"> | bigint | number
   user_id?: Prisma.BigIntFilter<"photos"> | bigint | number
-  filename?: Prisma.StringFilter<"photos"> | string
+  asset_id?: Prisma.StringFilter<"photos"> | string
   uploaded_at?: Prisma.DateTimeFilter<"photos"> | Date | string
   deleted_at?: Prisma.DateTimeNullableFilter<"photos"> | Date | string | null
 }
 
 export type photosCreateManyUsersInput = {
   id?: bigint | number
-  filename: string
+  asset_id: string
   uploaded_at?: Date | string
   deleted_at?: Date | string | null
 }
 
 export type photosUpdateWithoutUsersInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUpdateManyWithoutPhotosNestedInput
@@ -721,7 +727,7 @@ export type photosUpdateWithoutUsersInput = {
 
 export type photosUncheckedUpdateWithoutUsersInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   album_photos?: Prisma.album_photosUncheckedUpdateManyWithoutPhotosNestedInput
@@ -731,7 +737,7 @@ export type photosUncheckedUpdateWithoutUsersInput = {
 
 export type photosUncheckedUpdateManyWithoutUsersInput = {
   id?: Prisma.BigIntFieldUpdateOperationsInput | bigint | number
-  filename?: Prisma.StringFieldUpdateOperationsInput | string
+  asset_id?: Prisma.StringFieldUpdateOperationsInput | string
   uploaded_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   deleted_at?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
@@ -779,7 +785,7 @@ export type PhotosCountOutputTypeCountPhoto_tagsArgs<ExtArgs extends runtime.Typ
 export type photosSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   user_id?: boolean
-  filename?: boolean
+  asset_id?: boolean
   uploaded_at?: boolean
   deleted_at?: boolean
   album_photos?: boolean | Prisma.photos$album_photosArgs<ExtArgs>
@@ -792,7 +798,7 @@ export type photosSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs =
 export type photosSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   user_id?: boolean
-  filename?: boolean
+  asset_id?: boolean
   uploaded_at?: boolean
   deleted_at?: boolean
   users?: boolean | Prisma.usersDefaultArgs<ExtArgs>
@@ -801,7 +807,7 @@ export type photosSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extens
 export type photosSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   user_id?: boolean
-  filename?: boolean
+  asset_id?: boolean
   uploaded_at?: boolean
   deleted_at?: boolean
   users?: boolean | Prisma.usersDefaultArgs<ExtArgs>
@@ -810,12 +816,12 @@ export type photosSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extens
 export type photosSelectScalar = {
   id?: boolean
   user_id?: boolean
-  filename?: boolean
+  asset_id?: boolean
   uploaded_at?: boolean
   deleted_at?: boolean
 }
 
-export type photosOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "user_id" | "filename" | "uploaded_at" | "deleted_at", ExtArgs["result"]["photos"]>
+export type photosOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "user_id" | "asset_id" | "uploaded_at" | "deleted_at", ExtArgs["result"]["photos"]>
 export type photosInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   album_photos?: boolean | Prisma.photos$album_photosArgs<ExtArgs>
   captions?: boolean | Prisma.photos$captionsArgs<ExtArgs>
@@ -841,7 +847,7 @@ export type $photosPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: bigint
     user_id: bigint
-    filename: string
+    asset_id: string
     uploaded_at: Date
     deleted_at: Date | null
   }, ExtArgs["result"]["photos"]>
@@ -1273,7 +1279,7 @@ export interface Prisma__photosClient<T, Null = never, ExtArgs extends runtime.T
 export interface photosFieldRefs {
   readonly id: Prisma.FieldRef<"photos", 'BigInt'>
   readonly user_id: Prisma.FieldRef<"photos", 'BigInt'>
-  readonly filename: Prisma.FieldRef<"photos", 'String'>
+  readonly asset_id: Prisma.FieldRef<"photos", 'String'>
   readonly uploaded_at: Prisma.FieldRef<"photos", 'DateTime'>
   readonly deleted_at: Prisma.FieldRef<"photos", 'DateTime'>
 }
