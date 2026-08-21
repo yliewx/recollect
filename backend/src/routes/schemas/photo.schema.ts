@@ -51,6 +51,17 @@ export const uploadPhotoSchema = {
                         asset_id: { type: 'string', description: 'Local device asset identifier (e.g. PHAsset localIdentifier)' },
                         caption: { type: 'string', maxLength: 200 },
                         tags: { type: 'array', items: { type: 'string', maxLength: 30 } },
+                        embedding: {
+                            type: 'array',
+                            description:
+                                'On-device visual feature print (VNGenerateImageFeaturePrintRequest). ' +
+                                'Length is not fixed -- it depends on iOS version/device -- so no exact ' +
+                                'size is enforced here; mismatched-dimension photos are simply excluded ' +
+                                'from similarity results by the backend.',
+                            items: { type: 'number' },
+                            minItems: 1,
+                            maxItems: 8192,
+                        },
                     },
                     required: ['asset_id'],
                     additionalProperties: false,
@@ -244,6 +255,43 @@ export const updateCaptionSchema = {
         },
         required: ['photo_id', 'caption'],
         additionalProperties: false,
+        },
+    },
+};
+
+/**============================================
+ *          GET /photos/:id/similar
+ *=============================================**/
+export const similarPhotosSchema = {
+    tags: ['Photos'],
+    summary: 'Find visually similar photos',
+    description:
+        'Returns other photos in the same user\'s library ranked by visual similarity to the given photo, ' +
+        'using the on-device embedding captured at import time. Photos with no embedding never appear as ' +
+        'the anchor or as a match.',
+    security: [{ userIdHeader: [] }],
+    ...idParamSchema,
+    querystring: {
+        type: 'object',
+        properties: {
+            limit: {
+                type: 'integer',
+                minimum: 1,
+                maximum: 50,
+                default: 20,
+            },
+        },
+        additionalProperties: false,
+    },
+    response: {
+        200: {
+            type: 'object',
+            properties: {
+                photos: { type: 'array', items: photoPayloadSchema },
+                count: { type: 'integer' },
+            },
+            required: ['photos', 'count'],
+            additionalProperties: false,
         },
     },
 };

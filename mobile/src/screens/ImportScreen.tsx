@@ -8,6 +8,7 @@ import { LoadingState } from '../components/LoadingState';
 import { EmptyState } from '../components/EmptyState';
 import { registerPhotos } from '../api/photos';
 import { getErrorMessage } from '../api/client';
+import { extractPhotoEmbedding } from '../native/photoEmbedding';
 import { colors, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -45,7 +46,15 @@ export function ImportScreen({ navigation }: Props) {
     if (selectedIds.size === 0) return;
     setIsSubmitting(true);
     try {
-      await registerPhotos([...selectedIds].map((asset_id) => ({ asset_id })));
+      // extract on-device visual embeddings at write time (not on browse);
+      // a photo whose extraction fails is still imported, just without one
+      const items = await Promise.all(
+        [...selectedIds].map(async (asset_id) => ({
+          asset_id,
+          embedding: await extractPhotoEmbedding(asset_id),
+        }))
+      );
+      await registerPhotos(items);
       navigation.goBack();
     } catch (err) {
       Alert.alert('Import failed', getErrorMessage(err, 'Could not import photos. Please try again.'));

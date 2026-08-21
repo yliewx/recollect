@@ -1,4 +1,4 @@
-import { InsertedPhotoData } from './photo.upload.js'
+import { InsertedPhotoData } from '@/types/photo.js';
 import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
 import { PhotoTag } from '@/types/models.js';
 import { debugPrint, debugPrintNested } from '@/utils/debug.print.js';

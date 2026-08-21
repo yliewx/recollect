@@ -4,12 +4,14 @@ import { CaptionService } from "@/services/caption.service.ts";
 import { Cursor } from "@/services/paginate.utils.ts";
 import { SearchService } from "@/services/search.service.ts";
 import { TagService } from "@/services/tag.service.ts";
+import { EmbeddingService } from "@/services/embedding.service.ts";
 
 export interface Services {
     tagService: TagService,
     captionService: CaptionService,
     cacheService: CacheService,
-    searchService: SearchService
+    searchService: SearchService,
+    embeddingService: EmbeddingService
 }
 
 export type SearchQuery = {

@@ -1,5 +1,5 @@
 import { PhotoModel } from '@/models/photo.model.js';
-import { PhotoData, InsertedPhotoData /*, uploadPhotos */ } from '@/services/photo.upload.js';
+import { PhotoData, InsertedPhotoData } from '@/types/photo.js';
 import { TagService, normalizeTags } from '@/services/tag.service.js';
 import { CaptionService, normalizeCaption } from '@/services/caption.service.js';
 import { FastifyReply, FastifyRequest } from "fastify";
@@ -10,6 +10,7 @@ import { CacheService } from '@/services/cache.service.js';
 import chalk from 'chalk';
 import { buildCursor, Cursor } from '@/services/paginate.utils.js';
 import { SearchService } from '@/services/search.service.js';
+import { EmbeddingService } from '@/services/embedding.service.js';
 
 export class PhotoController {
     constructor(
@@ -18,7 +19,8 @@ export class PhotoController {
         private tagService: TagService,
         private captionService: CaptionService,
         private cache: CacheService,
-        private searchService: SearchService
+        private searchService: SearchService,
+        private embeddingService: EmbeddingService
     ) {}
 
     // POST /photos
@@ -51,6 +53,9 @@ export class PhotoController {
                 // insert captions
                 const insertedCaptions = await this.captionService.insertCaptions(insertedPhotoData, tx);
                 if (insertedCaptions) debugPrintNested(insertedCaptions, 'Inserted Captions');
+
+                // store on-device visual embeddings, if provided
+                await this.embeddingService.setEmbeddings(insertedPhotoData, tx);
 
                 // return photo with structured metadata
                 return await this.photoModel.findByIds(newPhotos.map(p => p.id), user_id, tx);
@@ -274,6 +279,37 @@ export class PhotoController {
             return reply.status(200).send({ success: true });
         } catch (err) {
             console.error('Error in PhotoController.restore:', err);
+            return reply.sendError(err);
+        }
+    }
+
+    // GET /photos/:id/similar
+    // returns visually similar photos from the same user's library, nearest first.
+    // photos registered without an on-device embedding never appear as a match
+    // (anchor or candidate) -- similarity is computed entirely server-side over
+    // vectors, never over image bytes.
+    async findSimilar(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+        const user_id = request.user.id;
+        const photo_id = parseBigInt(request.params.id, 'photo_id');
+        const { limit } = request.query as { limit: number };
+
+        try {
+            const [owned] = await this.photoModel.findOwnedByIds([photo_id], user_id);
+            if (!owned) {
+                return reply.sendError('Photo not found or access denied');
+            }
+
+            const similarIds = await this.embeddingService.findSimilarPhotoIds(user_id, photo_id, limit);
+            if (similarIds.length === 0) {
+                return reply.status(200).send({ photos: [], count: 0 });
+            }
+
+            const photos = await this.searchService.resolveIdsToPhotos(user_id, similarIds);
+            await this.cache.cachePhotos(photos);
+
+            return reply.status(200).send({ photos, count: photos.length });
+        } catch (err) {
+            console.error('Error in PhotoController.findSimilar:', err);
             return reply.sendError(err);
         }
     }

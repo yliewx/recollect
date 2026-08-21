@@ -3,7 +3,7 @@ import { PhotoModel } from '@/models/photo.model.js';
 import { PhotoController } from '@/controllers/photo.controller.js';
 import userContext from '@/plugins/user.context.js';
 import { Services } from '@/types/search.js';
-import { deletePhotoSchema, querySchema, restorePhotoSchema, updateCaptionSchema, updateTagsSchema, uploadPhotoSchema } from './schemas/photo.schema.js';
+import { deletePhotoSchema, querySchema, restorePhotoSchema, similarPhotosSchema, updateCaptionSchema, updateTagsSchema, uploadPhotoSchema } from './schemas/photo.schema.js';
 
 /* define query parameters and types
 eg.
@@ -21,6 +21,7 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
         captionService,
         cacheService,
         searchService,
+        embeddingService,
     } = services;
 
     const photoController = new PhotoController(
@@ -30,6 +31,7 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
         captionService,
         cacheService,
         searchService,
+        embeddingService,
     );
 
     // protected
@@ -74,6 +76,13 @@ export async function photoRoutes(app: FastifyInstance, services: Services) {
             '/photos/:id/restore',
             { schema: restorePhotoSchema },
             photoController.restore.bind(photoController)
+        );
+
+        // find visually similar photos
+        app.get<{ Params: { id: string } }>(
+            '/photos/:id/similar',
+            { schema: similarPhotosSchema },
+            photoController.findSimilar.bind(photoController)
         );
     });
 }

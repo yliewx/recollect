@@ -174,7 +174,7 @@ export function LibraryScreen({ navigation }: Props) {
         isFetchingMore={isFetchingMore}
         onRefresh={refresh}
         onLoadMore={fetchNextPage}
-        onPressPhoto={(photo) => navigation.navigate('PhotoDetail', { photo })}
+        onPressPhoto={(photo) => navigation.navigate('PhotoDetail', { photo, photoList: photos })}
       />
     </SafeAreaView>
   );

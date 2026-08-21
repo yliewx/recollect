@@ -21,14 +21,6 @@
 //     tags?: string[];
 // }
 
-export interface PhotoData {
-    asset_id: string;
-    caption?: string;
-    tags?: string[];
-}
-
-export type InsertedPhotoData = PhotoData & { photo_id: bigint };
-
 /**============================================
  *          MULTIPART FILE UPLOADS
  *          (superseded by local asset_id sync, kept for reference)

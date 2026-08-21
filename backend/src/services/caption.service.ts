@@ -1,5 +1,5 @@
 import { PrismaClient } from "@/generated/prisma/client.js";
-import { InsertedPhotoData } from "./photo.upload.js";
+import { InsertedPhotoData } from "@/types/photo.js";
 import { Prisma } from "@/generated/prisma/client.js";
 import { Cursor } from "./paginate.utils.js";
 

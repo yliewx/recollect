@@ -4,6 +4,7 @@ import type {
   PhotoListResponse,
   RegisterPhotoItem,
   RegisterPhotosResponse,
+  SimilarPhotosResponse,
   UpdateCaptionResponse,
   UpdateTagsRequest,
   UpdateTagsResponse,
@@ -40,5 +41,11 @@ export function updateTags(photoId: string, body: UpdateTagsRequest): Promise<Up
   return apiRequest<UpdateTagsResponse>(`/photos/${photoId}/tags`, {
     method: 'PATCH',
     body,
+  });
+}
+
+export function getSimilarPhotos(photoId: string, limit?: number): Promise<SimilarPhotosResponse> {
+  return apiRequest<SimilarPhotosResponse>(`/photos/${photoId}/similar`, {
+    query: { limit },
   });
 }

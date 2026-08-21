@@ -32,9 +32,17 @@ export type RegisterPhotoItem = {
   asset_id: string;
   caption?: string;
   tags?: string[];
+  // on-device visual feature print (see src/native/photoEmbedding.ts). Length
+  // varies by iOS version/device -- do not assume a fixed size.
+  embedding?: number[];
 };
 
 export type RegisterPhotosResponse = {
+  photos: Photo[];
+  count: number;
+};
+
+export type SimilarPhotosResponse = {
   photos: Photo[];
   count: number;
 };

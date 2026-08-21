@@ -60,6 +60,8 @@ model photos {
   asset_id     String
   uploaded_at  DateTime       @default(now()) @db.Timestamptz(6)
   deleted_at   DateTime?      @db.Timestamptz(6)
+  /// on-device Vision feature print; read/written via $queryRaw/$executeRaw only, see EmbeddingService
+  embedding    Unsupported("vector")?
   album_photos album_photos[]
   captions     captions?
   photo_tags   photo_tags[]

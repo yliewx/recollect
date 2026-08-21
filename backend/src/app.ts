@@ -13,6 +13,7 @@ import { TagService } from '@/services/tag.service.js';
 import { CacheService } from './services/cache.service.js';
 import { CaptionService } from './services/caption.service.js';
 import { SearchService } from './services/search.service.js';
+import { EmbeddingService } from './services/embedding.service.js';
 import { PhotoModel } from './models/photo.model.js';
 
 /**========================================================================
@@ -48,11 +49,13 @@ export async function buildApp(options = {}): Promise<FastifyInstance> {
     const tagService = new TagService(app.prisma);
     const captionService = new CaptionService(app.prisma);
     const cacheService = new CacheService(app.redis);
+    const embeddingService = new EmbeddingService(app.prisma);
 
     const services: Services = {
         tagService,
         captionService,
         cacheService,
+        embeddingService,
         searchService: new SearchService(
             new PhotoModel(app.prisma),
             captionService,
