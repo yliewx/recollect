@@ -8,10 +8,12 @@ import { usePhotos } from '../hooks/usePhotos';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { SyncedPhotoGrid } from '../components/SyncedPhotoGrid';
 import { SearchBar } from '../components/SearchBar';
+import { SortControl } from '../components/SortControl';
 import { LoadingState } from '../components/LoadingState';
 import { EmptyState } from '../components/EmptyState';
 import { colors, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
+import type { PhotoSortBy, SortOrder } from '../api/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Library'>;
 
@@ -22,6 +24,8 @@ export function LibraryScreen({ navigation }: Props) {
 
   const [captionQuery, setCaptionQuery] = useState('');
   const [tagQuery, setTagQuery] = useState('');
+  const [sortBy, setSortBy] = useState<PhotoSortBy>('uploaded_at');
+  const [order, setOrder] = useState<SortOrder>('desc');
   const debouncedCaption = useDebouncedValue(captionQuery, DEBOUNCE_MS);
   const debouncedTag = useDebouncedValue(tagQuery, DEBOUNCE_MS);
   const hasActiveFilters = captionQuery.trim() !== '' || tagQuery.trim() !== '';
@@ -29,7 +33,14 @@ export function LibraryScreen({ navigation }: Props) {
   const { photos, loadState, isFetchingMore, fetchNextPage, refresh } = usePhotos({
     caption: debouncedCaption,
     tag: debouncedTag,
+    sortBy,
+    order,
   });
+
+  const handleSortChange = useCallback((nextSortBy: PhotoSortBy, nextOrder: SortOrder) => {
+    setSortBy(nextSortBy);
+    setOrder(nextOrder);
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -142,6 +153,7 @@ export function LibraryScreen({ navigation }: Props) {
         autoCapitalize="none"
         accessibilityLabel="Filter by tags"
       />
+      <SortControl sortBy={sortBy} order={order} onChange={handleSortChange} />
     </View>
   );
 

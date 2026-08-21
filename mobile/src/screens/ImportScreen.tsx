@@ -9,6 +9,7 @@ import { EmptyState } from '../components/EmptyState';
 import { registerPhotos } from '../api/photos';
 import { getErrorMessage } from '../api/client';
 import { extractPhotoEmbedding } from '../native/photoEmbedding';
+import { getPhotoFileSize } from '../utils/getPhotoFileSize';
 import { colors, spacing, typography } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -46,13 +47,25 @@ export function ImportScreen({ navigation }: Props) {
     if (selectedIds.size === 0) return;
     setIsSubmitting(true);
     try {
-      // extract on-device visual embeddings at write time (not on browse);
-      // a photo whose extraction fails is still imported, just without one
+      // width/height come from the already-loaded asset list;
+      // size_bytes requires a file stat, done alongside embedding extraction at write time (not on browse).
+      // a photo whose extraction/stat fails is still imported, just without that field.
+      const assetById = new Map(assets.map((asset) => [asset.id, asset]));
       const items = await Promise.all(
-        [...selectedIds].map(async (asset_id) => ({
-          asset_id,
-          embedding: await extractPhotoEmbedding(asset_id),
-        }))
+        [...selectedIds].map(async (asset_id) => {
+          const asset = assetById.get(asset_id);
+          const [embedding, size_bytes] = await Promise.all([
+            extractPhotoEmbedding(asset_id),
+            getPhotoFileSize(asset_id),
+          ]);
+          return {
+            asset_id,
+            width: asset?.width,
+            height: asset?.height,
+            size_bytes,
+            embedding,
+          };
+        })
       );
       await registerPhotos(items);
       navigation.goBack();
@@ -61,7 +74,7 @@ export function ImportScreen({ navigation }: Props) {
     } finally {
       setIsSubmitting(false);
     }
-  }, [selectedIds, navigation]);
+  }, [selectedIds, assets, navigation]);
 
   if (permission === 'undetermined' || permission === 'denied') {
     return (

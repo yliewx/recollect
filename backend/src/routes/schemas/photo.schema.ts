@@ -25,6 +25,9 @@ export const photoPayloadSchema = {
         deleted_at: { anyOf: [{ type: 'string' }, { type: 'null' }] },
         caption: { anyOf: [{ type: 'string' }, { type: 'null' }] },
         tags: { type: 'array', items: { type: 'string' } },
+        width: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+        height: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
+        size_bytes: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
     },
     required: ['id', 'uploaded_at'],
     additionalProperties: false,
@@ -51,6 +54,9 @@ export const uploadPhotoSchema = {
                         asset_id: { type: 'string', description: 'Local device asset identifier (e.g. PHAsset localIdentifier)' },
                         caption: { type: 'string', maxLength: 200 },
                         tags: { type: 'array', items: { type: 'string', maxLength: 30 } },
+                        width: { type: 'integer', minimum: 1, description: 'Image width in pixels' },
+                        height: { type: 'integer', minimum: 1, description: 'Image height in pixels' },
+                        size_bytes: { type: 'integer', minimum: 1, description: 'Image file size in bytes' },
                         embedding: {
                             type: 'array',
                             description:
@@ -162,6 +168,19 @@ export const querySchema = {
             cursor_id: {
                 type: 'string',
                 description: 'Cursor photo id (stringified bigint)'
+            },
+            sort_by: {
+                type: 'string',
+                enum: ['uploaded_at', 'dimensions', 'size_bytes'],
+                default: 'uploaded_at',
+                description:
+                    'Field to sort by. "dimensions" sorts by width then height. ' +
+                    'Ignored when a caption search is active -- those results are always ranked by relevance.',
+            },
+            order: {
+                type: 'string',
+                enum: ['asc', 'desc'],
+                default: 'desc',
             },
         },
         additionalProperties: false,

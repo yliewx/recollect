@@ -19,6 +19,8 @@ export function getPhotos(params: GetPhotosParams = {}): Promise<PhotoListRespon
       limit: params.limit,
       cursor_id: params.cursor_id,
       cursor_rank: params.cursor_rank,
+      sort_by: params.sort_by,
+      order: params.order,
     },
   });
 }

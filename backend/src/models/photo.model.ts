@@ -1,6 +1,8 @@
 import { Photo, Tag, PhotoTag, Caption } from "@/types/models.js";
 import { Prisma, PrismaClient } from '@/generated/prisma/client.js';
 import { paginateFindMany, buildCursorOptions, Cursor } from "@/services/paginate.utils.js";
+import { PhotoData } from "@/types/photo.js";
+import { PhotoSortBy, SortOrder } from "@/types/search.js";
 
 // raw result from prisma includes
 export type PhotoWithMetadata = Photo & {
@@ -18,18 +20,39 @@ export type PhotoPayload = Photo & {
 export class PhotoModel {
     constructor(private prisma: PrismaClient) {}
 
+    // 'dimensions' sorts by width then height since they're stored separately
+    // id is always the final tiebreaker so cursor pagination stays stable across rows with equal sort values.
+    private buildOrderBy(
+        sortBy: PhotoSortBy,
+        order: SortOrder
+    ): Prisma.photosOrderByWithRelationInput[] {
+        switch (sortBy) {
+            case 'dimensions':
+                return [{ width: order }, { height: order }, { id: order }];
+            case 'size_bytes':
+                return [{ size_bytes: order }, { id: order }];
+            case 'uploaded_at':
+            default:
+                return [{ uploaded_at: order }, { id: order }];
+        }
+    }
+
     // bulk inserts
     async uploadMany(
         user_id: bigint,
-        assetIds: string[],
+        items: PhotoData[],
         tx?: Prisma.TransactionClient
     ): Promise<Photo[]> {
         const prisma = tx ?? this.prisma;
+        const assetIds = items.map(item => item.asset_id);
 
         await prisma.photos.createMany({
-            data: assetIds.map(asset_id => ({
+            data: items.map(({ asset_id, width, height, size_bytes }) => ({
                 user_id,
                 asset_id,
+                width,
+                height,
+                size_bytes,
             })),
             skipDuplicates: true,
         });
@@ -43,7 +66,7 @@ export class PhotoModel {
             orderBy: { uploaded_at: 'desc' },
         });
     }
-    
+
     // get all active photos from specific user
     // optional: filter by album_id only if specified
     // only return photo ids, no metadata (avoid extra joins)
@@ -51,7 +74,9 @@ export class PhotoModel {
         user_id: bigint,
         cursor?: Cursor,
         take = 20,
-        album_id?: bigint
+        album_id?: bigint,
+        sortBy: PhotoSortBy = 'uploaded_at',
+        order: SortOrder = 'desc'
     ): Promise<{ photoIds: bigint[], nextCursor: Cursor | null }> {
         const result = await paginateFindMany<{ id: bigint }>(this.prisma.photos, {
             ...buildCursorOptions(cursor),
@@ -62,7 +87,7 @@ export class PhotoModel {
                 ...(album_id !== undefined ? this.filterByAlbum(album_id, user_id) : {})
             },
             select: { id: true },
-            orderBy: { id: 'desc' },
+            orderBy: this.buildOrderBy(sortBy, order),
         });
 
         const photoIds = result.map(p => p.id);
@@ -98,7 +123,9 @@ export class PhotoModel {
         user_id: bigint,
         cursor?: Cursor,
         take = 20,
-        album_id?: bigint
+        album_id?: bigint,
+        sortBy: PhotoSortBy = 'uploaded_at',
+        order: SortOrder = 'desc'
     ): Promise<{ photos: PhotoPayload[], nextCursor: Cursor | null }> {
         if (tags.length === 0) {
             return {
@@ -122,7 +149,7 @@ export class PhotoModel {
                     include: { tags: { select: { tag_name: true } } }, // only tag names
                 },
             },
-            orderBy: { id: 'desc' },
+            orderBy: this.buildOrderBy(sortBy, order),
         });
 
         const photos: PhotoPayload[] = result.map(p => ({
@@ -131,6 +158,9 @@ export class PhotoModel {
             asset_id: p.asset_id,
             uploaded_at: p.uploaded_at,
             deleted_at: p.deleted_at,
+            width: p.width,
+            height: p.height,
+            size_bytes: p.size_bytes,
             caption: p.captions?.caption ?? null,
             tags: p.photo_tags?.map(pt => pt.tags.tag_name) ?? [],
         }));
@@ -217,13 +247,16 @@ export class PhotoModel {
             asset_id: p.asset_id,
             uploaded_at: p.uploaded_at,
             deleted_at: p.deleted_at,
+            width: p.width,
+            height: p.height,
+            size_bytes: p.size_bytes,
             caption: p.captions?.caption ?? null,
             tags: p.photo_tags?.map(pt => pt.tags.tag_name) ?? [],
         }));
 
         return photos;
     }
-    
+
     // helper: return photos with matching photo_ids that are owned by the user
     async findOwnedByIds(photo_ids: bigint[], user_id: bigint): Promise<Photo[]> {
         if (photo_ids.length === 0) return [];

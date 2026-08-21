@@ -38,11 +38,20 @@ CREATE TABLE IF NOT EXISTS photos (
     asset_id TEXT NOT NULL,
     uploaded_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE,
+    width INTEGER,
+    height INTEGER,
+    size_bytes INTEGER,
 
     CONSTRAINT photos_deleted_at
         CHECK (deleted_at IS NULL OR deleted_at >= uploaded_at),
     CONSTRAINT users_photos_asset_unique
-        UNIQUE (user_id, asset_id)
+        UNIQUE (user_id, asset_id),
+    CONSTRAINT photos_width_positive
+        CHECK (width IS NULL OR width > 0),
+    CONSTRAINT photos_height_positive
+        CHECK (height IS NULL OR height > 0),
+    CONSTRAINT photos_size_bytes_positive
+        CHECK (size_bytes IS NULL OR size_bytes > 0)
 );
 
 -- -------------------------------------

@@ -7,12 +7,20 @@ export type Photo = {
   deleted_at: string | null;
   caption: string | null;
   tags: string[];
+  width: number | null;
+  height: number | null;
+  size_bytes: number | null;
 };
 
 export type Cursor = {
   id: string;
   rank?: number;
 };
+
+// mirrors backend PhotoSortBy/SortOrder (backend/src/types/search.d.ts).
+// 'dimensions' sorts by width then height (see PhotoModel.buildOrderBy).
+export type PhotoSortBy = 'uploaded_at' | 'dimensions' | 'size_bytes';
+export type SortOrder = 'asc' | 'desc';
 
 export type GetPhotosParams = {
   tag?: string;
@@ -21,6 +29,8 @@ export type GetPhotosParams = {
   limit?: number;
   cursor_id?: string;
   cursor_rank?: number;
+  sort_by?: PhotoSortBy;
+  order?: SortOrder;
 };
 
 export type PhotoListResponse = {
@@ -32,8 +42,12 @@ export type RegisterPhotoItem = {
   asset_id: string;
   caption?: string;
   tags?: string[];
-  // on-device visual feature print (see src/native/photoEmbedding.ts). Length
-  // varies by iOS version/device -- do not assume a fixed size.
+  // capture/file metadata; omitted when the client couldn't determine it.
+  width?: number;
+  height?: number;
+  size_bytes?: number;
+  // on-device visual feature print (see src/native/photoEmbedding.ts).
+  // length varies by iOS version/device.
   embedding?: number[];
 };
 

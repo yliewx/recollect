@@ -3,8 +3,11 @@ import { Cursor, buildCursor, nextCursorFromIds } from './paginate.utils.js';
 import { CaptionService } from './caption.service.js';
 import { CacheService } from './cache.service.js';
 import { PhotoModel, PhotoPayload } from '@/models/photo.model.js';
-import { SearchQuery, SearchResult } from '@/types/search.js';
+import { SearchQuery, SearchResult, PhotoSortBy, SortOrder } from '@/types/search.js';
 import { debugPrintNested } from '@/utils/debug.print.js';
+
+const VALID_SORT_BY: readonly PhotoSortBy[] = ['uploaded_at', 'dimensions', 'size_bytes'];
+const VALID_ORDER: readonly SortOrder[] = ['asc', 'desc'];
 
 export class SearchService {
     constructor(
@@ -23,6 +26,8 @@ export class SearchService {
         cursor?: Cursor,
         limit = 20,
         album_id?: bigint,
+        sortBy: PhotoSortBy = 'uploaded_at',
+        order: SortOrder = 'desc',
     ): SearchQuery {
         const hasTagFilter = tags.length > 0;
         const hasCaptionSearch = caption.length > 0;
@@ -35,7 +40,11 @@ export class SearchService {
             limit,
             hasTagFilter,
             hasCaptionSearch,
-            album_id: album_id ?? undefined
+            album_id: album_id ?? undefined,
+            // re-validated here (not just trusted from the route schema) so this
+            // never becomes a place a raw string could reach an ORDER BY clause
+            sortBy: VALID_SORT_BY.includes(sortBy) ? sortBy : 'uploaded_at',
+            order: VALID_ORDER.includes(order) ? order : 'desc',
         };
     }
 
@@ -56,12 +65,12 @@ export class SearchService {
 
         // 1. no filters: get all photos from user
         if (!q.hasTagFilter && !q.hasCaptionSearch) {
-            return this.searchAllPhotos(user_id, q.limit, q.cursor);
+            return this.searchAllPhotos(user_id, q.limit, q.cursor, q.album_id, q.sortBy, q.order);
         }
 
         // 2. tags only
         if (q.hasTagFilter && !q.hasCaptionSearch) {
-            return this.searchByTags(user_id, q.tags, q.match, q.limit, q.cursor, q.album_id);
+            return this.searchByTags(user_id, q.tags, q.match, q.limit, q.cursor, q.album_id, q.sortBy, q.order);
         }
 
         // 3. captions only or captions + tags
@@ -86,14 +95,18 @@ export class SearchService {
         user_id: bigint,
         limit: number,
         cursor?: Cursor,
-        album_id?: bigint
+        album_id?: bigint,
+        sortBy: PhotoSortBy = 'uploaded_at',
+        order: SortOrder = 'desc'
     ): Promise<SearchResult<any>> {
         // get ids
         const { photoIds, nextCursor } = await this.photoModel.findAllFromUser(
             user_id,
             cursor,
             limit,
-            album_id
+            album_id,
+            sortBy,
+            order
         );
         if (photoIds.length === 0) return { photos: [], nextCursor: null };
         // resolve ids -> cached metadata
@@ -112,15 +125,21 @@ export class SearchService {
         match: 'any' | 'all',
         limit: number,
         cursor?: Cursor,
-        album_id?: bigint
+        album_id?: bigint,
+        sortBy: PhotoSortBy = 'uploaded_at',
+        order: SortOrder = 'desc'
     ): Promise<SearchResult<any>> {
         // check if search query exists in cache
+        // (sortBy/order are part of the cache key -- a cached result set built
+        // under one sort order must never be served for a different one)
         const cachedIds = await this.cache.getCachedTagSearch(
             user_id,
             tags,
             match,
             cursor,
-            limit
+            limit,
+            sortBy,
+            order
         );
 
         if (cachedIds !== null) {
@@ -138,11 +157,13 @@ export class SearchService {
             user_id,
             cursor,
             limit,
-            album_id
+            album_id,
+            sortBy,
+            order
         );
-    
+
         if (photos.length > 0) {
-            await this.cache.cacheTagSearch(user_id, tags, match, photos.map(p => p.id), nextCursor === null);
+            await this.cache.cacheTagSearch(user_id, tags, match, photos.map(p => p.id), nextCursor === null, sortBy, order);
             await this.cache.cachePhotos(photos);
         }
 

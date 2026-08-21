@@ -14,6 +14,11 @@ export interface Services {
     embeddingService: EmbeddingService
 }
 
+// whitelisted sort vocabulary -- these are the only values ever allowed to
+// reach an ORDER BY clause. See PhotoModel.buildOrderBy.
+export type PhotoSortBy = 'uploaded_at' | 'dimensions' | 'size_bytes';
+export type SortOrder = 'asc' | 'desc';
+
 export type SearchQuery = {
     tags: string[];
     caption: string;
@@ -23,6 +28,9 @@ export type SearchQuery = {
     hasTagFilter: boolean;
     hasCaptionSearch: boolean;
     album_id?: bigint;
+    // ignored once a caption search is active -- FTS relevance ranking wins there
+    sortBy: PhotoSortBy;
+    order: SortOrder;
 };
 
 export type SearchResult<T> = {

@@ -11,6 +11,7 @@ import chalk from 'chalk';
 import { buildCursor, Cursor } from '@/services/paginate.utils.js';
 import { SearchService } from '@/services/search.service.js';
 import { EmbeddingService } from '@/services/embedding.service.js';
+import { PhotoSortBy, SortOrder } from '@/types/search.js';
 
 export class PhotoController {
     constructor(
@@ -36,8 +37,7 @@ export class PhotoController {
         try {
             const result = await this.prisma.$transaction(async (tx) => {
                 // bulk insert into photos table (existing asset_ids for this user are skipped)
-                const assetIds = items.map(item => item.asset_id);
-                const newPhotos = await this.photoModel.uploadMany(user_id, assetIds, tx);
+                const newPhotos = await this.photoModel.uploadMany(user_id, items, tx);
 
                 const assetIdToPhotoId = new Map(newPhotos.map(p => [p.asset_id, p.id]));
 
@@ -128,13 +128,15 @@ export class PhotoController {
     // GET /photos
     async findAllFromUser(request: FastifyRequest, reply: FastifyReply) {
         const user_id = request.user.id;
-        const { tag, caption, match, limit, cursor_rank, cursor_id } = request.query as {
+        const { tag, caption, match, limit, cursor_rank, cursor_id, sort_by, order } = request.query as {
             tag?: string;
             caption?: string;
             match: 'any' | 'all';
             limit: number;
             cursor_rank?: number;
             cursor_id?: string;
+            sort_by: PhotoSortBy;
+            order: SortOrder;
         };
         // normalize tags and caption search
         const tags = normalizeTags(
@@ -148,7 +150,10 @@ export class PhotoController {
             captions,
             match,
             cursor,
-            limit
+            limit,
+            undefined,
+            sort_by,
+            order
         );
         
         debugPrint(searchQuery, 'PhotoController: SearchQuery');

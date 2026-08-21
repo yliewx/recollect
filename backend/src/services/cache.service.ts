@@ -5,6 +5,7 @@ import { normalizeCaption } from './caption.service.js';
 import { PhotoPayload } from '@/models/photo.model.js';
 import chalk from 'chalk';
 import { Cursor } from './paginate.utils.js';
+import { PhotoSortBy, SortOrder } from '@/types/search.js';
 
 export interface CachedPhoto {
     user_id: string;
@@ -12,6 +13,9 @@ export interface CachedPhoto {
     caption: string | null;
     tags: string | null;
     uploaded_at: string;
+    width: string;
+    height: string;
+    size_bytes: string;
 }
 
 export class CacheService {
@@ -44,11 +48,16 @@ export class CacheService {
     }
 
     // cache key for captions/tags/combined captions+tags
+    // sortBy/order are only meaningful for the pure-tag path (caption search is
+    // always relevance-ranked); pass them there so a cached result set built
+    // under one sort order is never served back for a different one.
     buildSearchKey(
         user_id: bigint,
         tags: string[],
         caption: string,
-        match: 'any' | 'all'
+        match: 'any' | 'all',
+        sortBy?: PhotoSortBy,
+        order?: SortOrder
     ): string {
         const hasTagFilter = tags.length > 0;
         const hasCaptionSearch = caption.length > 0;
@@ -60,6 +69,9 @@ export class CacheService {
         }
         if (hasTagFilter) {
             query.push(`tags:${normalizeTags(tags).sort().join(',')}`);
+        }
+        if (sortBy !== undefined && order !== undefined) {
+            query.push(`sort:${sortBy}:${order}`);
         }
         const query_hash = this.generateHashKey(query.join('|'));
 
@@ -93,6 +105,9 @@ export class CacheService {
                 caption: data.caption ?? '',
                 tags: data.tags?.join(',') ?? '',
                 uploaded_at: data.uploaded_at.toISOString(),
+                width: data.width?.toString() ?? '',
+                height: data.height?.toString() ?? '',
+                size_bytes: data.size_bytes?.toString() ?? '',
             });
             
             pipeline.expire(photoKey, this.defaultPhotoTTL);
@@ -132,6 +147,9 @@ export class CacheService {
                     tags: data.tags ? data.tags.split(',').filter(Boolean) : [],
                     uploaded_at: new Date(data.uploaded_at),
                     deleted_at: null,
+                    width: data.width ? Number(data.width) : null,
+                    height: data.height ? Number(data.height) : null,
+                    size_bytes: data.size_bytes ? Number(data.size_bytes) : null,
                 });
             } else {
                 photoMap.set(photo_ids[i], null);
@@ -201,9 +219,11 @@ export class CacheService {
         tags: string[],
         match: 'any' | 'all',
         photo_ids: bigint[],
-        isComplete: boolean = false
+        isComplete: boolean = false,
+        sortBy?: PhotoSortBy,
+        order?: SortOrder
     ) {
-        const key = this.buildSearchKey(user_id, tags, '', match);
+        const key = this.buildSearchKey(user_id, tags, '', match, sortBy, order);
         if (!key) return;
 
         console.log('[ADD] tag search key:', key);
@@ -237,9 +257,11 @@ export class CacheService {
         tags: string[],
         match: 'any' | 'all',
         cursor?: Cursor,
-        limit = 20
+        limit = 20,
+        sortBy?: PhotoSortBy,
+        order?: SortOrder
     ): Promise<bigint[] | null> {
-        const key = this.buildSearchKey(user_id, tags, '', match);
+        const key = this.buildSearchKey(user_id, tags, '', match, sortBy, order);
         if (!key) return null;
 
         const exists = await this.redis.exists(key);
